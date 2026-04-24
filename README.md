@@ -1,4 +1,4 @@
-Goals? reimagine a powerful tool, also to further learning in Lua
+Goals? reimagine the project within suits, also to further learning in Lua
 
 Why? Laziness, it's quite daughting starting from scratch.
 
