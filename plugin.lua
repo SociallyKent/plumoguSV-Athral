@@ -18275,8 +18275,9 @@ StartUp = function()
 	
 	
 	if (#map.TimingPoints == 0) then
-		print('e!', "No timing point set."..
-			"\n Will contiue with default values until one is\n found.")
+		print('e!', "No timing point set.",
+			" Will contiue with default values until one is\n found.",
+			"(no internal default yet, potential to crash)")
 	elseif (state.Scale ~= 1) then
 		local printedScale = math.round(state.Scale * 100)
 		local printedScale = (100 < printedScale) and "above" or "below"
@@ -18313,9 +18314,9 @@ end end
 --[[
 
 ]]
-print "ABC"
+-- print "ABC"
 -- print ("ABC" .. "DEF")
-print(type "ABC")
+-- print(type "ABC")
 draw = function()
 	if StartUp() then return end
 	local Perform = not globalVars.performanceMode
@@ -18361,5 +18362,4 @@ draw = function()
 			globalVars.scrollGroupIndex = table.indexOf(groups, state.SelectedScrollGroupId)
 		end
 	end
-	
 end
