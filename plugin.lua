@@ -1,24 +1,294 @@
-math.randomseed(os.time())
-imgui_disable_vector_packing=true
-PLUGIN_NAME="plumoguSV";PLUGIN_VERSION="2.2.0";PLUGIN_AUTHOR="plummyyummy, kloi34";PLUGIN_DESCRIPTION="The ultimate community-driven and open-source competitive SV plugin, remastered for the modern age."
-PLUGIN_NAME = 'plumoguSV/Athral'
-PLUGIN_VERSION = '1.0'
-PLUGIN_AUTHOR = "plummyyummy, kloi34"
-PLUGIN_DESCRIPTION = "Athraled you could make it"
-ipc = {}
-ipc.emittedPorts = {}
----@type {number: fun(data: string): any}
-ipc.subscriptions = {}
-function ipc.transform(port)
-	if (port <= 0) then port = -port end
-	return -math.floor(port) * 67 - 6969
+function awake()
+	require("math")
+	require("string")
+	require("table")
+	editor = require("editor")
+	mouse = require("mouse")
+	board = require("board")
+	gather = {}
+	gather.helper =
+		{
+		["COS"] = function(...)
+			local Keys = {...}
+			return function(v)
+				local Table = {}
+				for i2, v2 in ipairs(Keys) do
+					Table[v2] = v[v2]
+					end
+				return Table
+		end end,
+		["RAW"] = function()
+			return function(v)
+				return v
+		end end,
+		}
+	gather.get = function(TABLE, ...)
+		local String
+		local Helper = gather.helper[... and "COS" or "RAW"](...)
+		local Table = {}
+		for i, v in ipairs(TABLE) do
+			Table[i] = Helper(v)
+			end
+		return Table
+	end
+	print(editor.notes)
+	-- print(gather.get(editor.notes, "StartTime"))
+	editor.between = function(START, END, INDEX)
+		local Data = map[INDEX]
+		return findleftright(data, START, END)
+	end
+	initializeNoteLockMode()
+	state.SelectedScrollGroupId = '$Default' or map.GetTimingGroupIds()[1]
+	initializeDisplacementExponentCache()
+	clock.prevTime = state.UnixTime
+	game.keyCount = map.GetKeyCount()
 end
-cache = {
-	boolean = {},
-	windows = {},
-	lists = {},
-}
-clock = {}; cache.clock = {}
+local Reader = read()
+function require(CODE)
+	local Code = Reader[CODE]
+	Code =
+		Code
+		:gsub("%-%-%[%[.-%]%]", "")--remove --[[]] comments
+		:gsub("%-%-.-\n", "\n")--remove -- comments
+		:gsub("%\n#.-\n", "\n")--remove # comments
+		:gsub("\n?return%s+"..CODE.."%s*$", "")--remove "return CODE"
+	eval(Code)
+	return expr(Code) end
+	
+local code = {}
+
+code.editor =
+[[
+editor = {}
+editor.keycount = map.GetKeyCount()
+editor.marks =
+	{
+	Name = "Bookmarks",
+	Current = "CurrentBookmark",
+	Create = utils.CreateBookmark}--(numeric, string)
+editor.layers =
+	{
+	Name = "EditorLayers",
+	Current = "CurrentLayer",
+	Create = utils.CreateEditorLayer}--(string, boolean¿?, vector(R,G,B)¿?)
+editor.notes =
+	{
+	Name = "HitObjects",
+	Current = "SelectedHitObjects",
+	Create = utils.CreateHitObject}--(numeric, numeric, ¿numeric, ¿ ?, ¿ ?, ¿ ?, ¿ ?)
+editor.factors =
+	{
+	Name = "ScrollSpeedFactors",
+	Current = "CurrentScrollFactor",
+	Create = utils.CreateScrollSpeedFactor}--(numeric, numeric, ¿boolean)
+editor.scrolls =
+	{
+	Name = "ScrollVelocities",
+	Current = "CurrentScrollVelocity",
+	Create = utils.CreateScrollVelocity}--(numeric, numeric, ¿boolean)
+editor.groups =
+	{
+	Name = "HitObjects",
+	Current = "SelectedScrollGroupId",
+	Create = utils.CreateScrollGroup}--(table?|userdata, numeric, vector(R,G,B))
+editor.lines =
+	{
+	Name = "TimingPoints",
+	Current = "CurrentTimingPoint",
+	Create = utils.CreateTimingPoint}--(numeric, numeric, numeric|string, ¿boolean)
+	local MapEditor = {"marks", "layers", "notes", "factors", "scrolls", "groups", "lines"}
+	local MapClicks = {}
+for i, v in ipairs(MapEditor) do
+	local MetaTable = {}
+	local Function = editor[v].Name
+	MapClicks[v] = Function
+	local Current = editor[v].Current
+	local Create = editor[v].Create
+	editor[v] = {create = Create}--kill all but Create
+	setmetatable(editor[v], MetaTable)
+	MetaTable.__index = function(TABLE, KEY)
+		if not KEY then return map[Function] end
+		return type(KEY) == "string" and Create or (KEY == 0 and Current) and state[Current] or map[Function][KEY]
+	end
+	MetaTable.__len = function()
+		return #map[Function] end
+	MetaTable.__newindex = function(TABLE, KEY)
+		return type(KEY) == "string" and TABLE[KEY:lower()] or error("\neditor."..v.."; cannot be asigned") end
+end
+editor = {}
+editor.select =
+	{
+	Name = "SelectedHitObjects",
+	}
+--switch to plugin.
+editor.time =
+	{Name = "SongTime"}
+local window = {}
+window.size =
+	{}
+do
+	local MetaTable = {}
+	local Function = editor.select.Name
+	local Function2 = "SelectedScrollGroupId"
+	editor["select"] = {}
+	setmetatable(editor.select, MetaTable)
+	MetaTable.__index = function(TABLE, KEY)
+		if not KEY then return state[Function] end
+		return (type(KEY) == "string" and state[Function2]) or state[Function][KEY]
+	end
+	MetaTable.__len = function()
+		return #state[Function] end
+end
+return editor
+]]
+code.mouse =--[[requires math.minmax]]
+[[
+mouse = {}
+local MouseRelease, MousePress, MousePos
+MouseRelease = imgui.IsMouseReleased
+MousePress = imgui.IsMouseClicked
+MousePos = imgui.GetMousePos
+
+mouse.down = imgui.IsMouseDown
+mouse.x, mouse.y =
+	function() return MousePos()[1] end,
+	function() return MousePos()[2] end
+mouse.pos = function()
+	local Pos = MousePos()
+	return Pos[1], Pos[2]
+end
+--[numeric]
+mouse.release = function(MOUSE)
+	if MouseRelease(MOUSE) then
+		return true, mouse.pos() end
+end
+--[numeric]
+mouse.press = function(MOUSE)
+	if MousePress(MOUSE) then
+		return true, mouse.pos() end
+end
+end
+mouse.rect = function(BOOLEAN, X, Y, Z, W)
+	if not BOOLEAN then return false end
+	local Xm, Ym = mouse.pos()
+	Y, W = math.minmax(Y, Y + W)
+	X, Z = math.minmax(X, X + Z)
+	return (Xm >= X) and (Xm <= Z) and (Ym >= Y) and (Ym <= W)
+end
+return mouse
+]]
+code.board =
+[[
+board = {}
+local BoardDown, KeyIndex
+local KeyIndex = {}
+BoardDown = utils.IsKeyDown
+board.down = BoardDown
+--[string]
+board.press = function(KEY)
+	local Prev = KeyIndex[KEY]
+	KeyIndex[KEY] = BoardDown(KEY:upper())
+	local Held = KeyIndex[KEY]
+	return (Held and not Prev), Held
+end
+--[string]
+function board.release(KEY)
+	local Prev = KeyIndex[KEY]
+	KeyIndex[KEY] = BoardDown(KEY:upper())
+	local Held = KeyIndex[KEY]
+	return (not Held and Prev), Held
+end
+return board
+]]
+code.math =
+[[
+--[numeric, numeric]
+math.binary = function(NUM, PRECISION)
+	return math.floor(NUM*PRECISION + 0.5)/PRECISION end
+--[numeric]
+math.factor = function(NUM)
+	if NUM == 1 then return 1 end
+	local Max = math.ceil(math.sqrt(NUM))
+	for i = 2, Max do
+		if NUM % i == 0 then
+			return NUM/i, i
+	end end
+	return NUM, 1 end
+# linear interpolation
+--[numeric, numreic, numeric]
+math.lerp = function(A, B, T)
+    return A + (B - A)*T end
+# Returns both the min and max of given numbers
+--[numerics¿...]
+math.minmax = function(...)
+	return math.min(...), math.max(...) end
+--[numeric, ¿numeric]
+math.round = function(NUM, DECIMAL)
+	local Notation = 10^(DECIMAL or 0)
+	return math.floor(NUM*Notation + 0.5)/Notation end
+# wrapper, keeps negative values
+--[numeric, numeric]
+math.wrap = function(A, B)
+	local a, b = math.modf(A/B)
+	return math.round(B*b, 12), a end
+# wrapper, always positive
+--[numeric, numeric]
+math.wrapAbs = function(A, B)
+	return A%B, A/B end
+
+
+math.infinity = 1/0
+math.tiniest = -math.infinity
+math.tiny = -math.huge
+math.null = 0/0--Not a Number (NaN)
+# renames
+math.split = math.modf
+# shortcuts
+abs = math.abs
+ceil = math.ceil
+floor = math.floor
+max = math.max
+min = math.min
+modf = math.modf
+fmod = math.fmod
+random = math.random
+return math
+]]
+code.string =
+[[
+string.aggregate = function(STRING, START, END, X, Y)
+		local Start, End
+		Start = string.find(STRING, START)
+		End = string.find(STRING, END) 
+		return Start + (X or 0), End + (Y or 0)
+	end
+return string
+]]
+code.table =
+[[
+
+return table
+]]
+write(code)
+
+local write = function() end --[kill write]
+loadup = {}
+cache = {boolean = {}, windows = {}, lists = {}, clock = {}}
+clock = {}
+deflog = {}
+game = {}--[[temp]]
+kbm = {}--[[temp]]
+kit = {}--[[temp]]
+ui = {}--[[temp]]
+matrix = {}--sister to 'math'
+math.randomseed(os.time())
+
+plugin =
+	{
+	name = "plumoguSV/Athral",
+	}
+imgui_disable_vector_packing = true
+
 clock.prevTime = 0
 color = {
 	vctr = {},
@@ -33,12 +303,151 @@ color.int.oRedMask = color.int.alphaMask + color.int.redMask
 color.int.oGreenMask = color.int.alphaMask + color.int.greenMask
 color.int.oBlueMask = color.int.alphaMask + color.int.blueMask
 color.int.oWhiteMask = color.int.alphaMask + color.int.whiteMask
-game = {
-	window = {},
-	get = {},
-}
-kbm = {}
-matrix = {}
+color.vctr.white = vector.New(1, 1, 1, 1)
+color.vctr.black = vector.New(0, 0, 0, 1)
+color.vctr.transparent = vector.New(0, 0, 0, 0)
+color.int.white = color.int.oWhiteMask * 255
+color.int.black = color.int.alphaMask * 255
+color.int.transparent = 0
+color.vctr.red = vector.New(1, 0, 0, 1)
+color.vctr.light_red = vector.New(1, 0.5, 0.5, 1)
+color.int.red = color.int.oRedMask * 255
+color.vctr.orange = vector.New(1, 0.5, 0, 1)
+color.vctr.light_orange = vector.New(1, 0.75, 0.5, 1)
+color.int.orange = 4278222975
+color.vctr.yellow = vector.New(1, 1, 0, 1)
+color.vctr.light_yellow = vector.New(1, 1, 0.5, 1)
+color.int.yellow = 4278255615
+color.vctr.green = vector.New(0, 1, 0, 1)
+color.vctr.light_green = vector.New(0.5, 1, 0.5, 1)
+color.int.green = color.int.oGreenMask * 255
+color.vctr.aqua = vector.New(0, 1, 1, 1)
+color.vctr.light_aqua = vector.New(0.5, 1, 1, 1)
+color.int.aqua = 4294967040
+color.vctr.blue = vector.New(0, 0, 1, 1)
+color.vctr.light_blue = vector.New(0.5, 0.5, 1, 1)
+color.int.blue = color.int.oBlueMask * 255
+color.vctr.purple = vector.New(1, 0, 1, 1)
+color.vctr.light_purple = vector.New(1, 0.5, 1, 1)
+color.int.purple = 4294901887
+color.vctr.magenta = vector.New(1, 0, 0.5, 1)
+color.vctr.light_magenta = vector.New(1, 0.5, 0.75, 1)
+color.int.magenta = 4286546175
+---Alters opacity of a given color.
+---@param col integer
+---@param additiveOpacity integer A number corresponding to the addition to the alpha channel (0-255).
+---@return number
+---@overload fun(col: Vector4, additiveOpacity: number): Vector4
+function color.alterOpacity(col, additiveOpacity)
+	if (type(col) ~= 'number') then
+		return col + vector.New(0, 0, 0, additiveOpacity)
+	end
+	return col + math.floor(additiveOpacity) * 16777216
+end
+print(bit32.lshift(255, 30))
+---Converts rgba to an unsigned integer (0 - 4294967295).
+---@param r integer
+---@param g integer
+---@param b integer
+---@param a integer
+---@return integer
+function color.rgbaToUint(r, g, b, a)
+	local flr = math.floor
+	return flr(a) * 16 ^ 6 + flr(b) * 16 ^ 4 + flr(g) * 16 ^ 2 + flr(r)
+end
+---Converts rgba (in vector form) to an unsigned integer (0 - 4294967295).
+---@param col Vector4
+---@return integer
+function color.vrgbaToUint(col)
+	local flr = math.floor
+	return color.rgbaToUint(flr(col.x * 255), flr(col.y * 255), flr(col.z * 255), flr(col.w * 255))
+end
+---Converts an unsigned integer to a Vector4 of color values (0-1 for each element).
+---@param n integer
+---@return Vector4
+function color.uintToRgba(UINT)
+	local Table = {}
+	for i = 0, 3 do
+		Table[i + 1] = floor(UINT/ 256^i)%256
+	end
+	return table.vectorize4(tbl)/255
+end
+
+---Converts rgba to an ndua string (base 92).
+---@param r integer
+---@param g integer
+---@param b integer
+---@param a integer
+---@return string
+function color.rgbaToNdua(r, g, b, a)
+	local uint = color.rgbaToUint(r, g, b, a)
+	local STRING = ''
+	for i = 0, 4 do
+		STRING = STRING .. NONDUA[math.floor(uint / (92 ^ i)) % 92 + 1]
+	end
+	return STRING:reverse()
+end
+---Converts an ndua string (base 92) to an rgba Vector4 (0-1 for each element).
+---@param ndua string
+---@return Vector4
+function color.nduaToRgba(ndua)
+	local num = 0
+	for i = 1, 5 do
+		local idx = table.indexOf(NONDUA, ndua:charAt(i))
+		if (idx == -1) then goto nextIndex end
+		num = num + (idx - 1) * 92 ^ (5 - i)
+		::nextIndex::
+	end
+	return color.uintToRgba(num)
+end
+---Converts a color to a Quaver-compatible string.
+---@param vctr Vector4
+---@return string
+function color.rgbaToStr(vctr)
+	local flr = math.floor
+	return table.concat({ flr(vctr.x * 255), flr(vctr.y * 255), flr(vctr.z * 255) }, ',')
+end
+---Converts a Quaver-compatible string to an rgba Vector4.
+---@param STRING string
+---@return Vector4
+function color.strToRgba(STRING)
+	local rgb = {}
+	STRING:gsub('(%d+)', function(c)
+		table.insert(rgb, c)
+	end)
+	return vector.New(rgb[1] / 255, rgb[2] / 255, rgb[3] / 255, 1)
+end
+---Converts hsl to an rgba `Vector4`, where `hue` is in degrees. The abstract formula comes from [Wikipedia](https://en.wikipedia.org/wiki/HSL_and_HSV#HSL_to_RGB_alternative).
+---@param hue integer The hue in degrees.
+---@param saturation number The saturation, within [0, 1].
+---@param lightness number The lightness, within [0, 1].
+---@param alpha number The opacity, within [0, 1].
+---@return Vector4
+function color.hslaToRgba(hue, saturation, lightness, alpha)
+	local a = saturation * math.min(lightness, 1 - lightness)
+	local f = function(n)
+		local k = (n + (hue % 360) / 30) % 12
+		return lightness - a * math.max(-1, math.min(k - 3, 9 - k, 1))
+	end
+	return vector.New(f(0), f(8), f(4), alpha)
+end
+ --Returns HEX
+color.RGBtoHEX = function(R, G, B, A)
+	local A = A and (string.contains(A, ".") and A*255 or A) or 255 
+	local Hex = string.format("%02X%02X%02X%02X", A, B, G, R)
+	return tonumber(Hex, 16) end
+
+ --Returns U32
+color.RGBtoHEX = function(R, G, B, A)
+	local A = A and (A <= 1 and A*255 or A) or 255
+	local Hex = bit32.bor(
+		bit32.lshift(A, 24),
+		bit32.lshift(B, 16),
+		bit32.lshift(G, 8),
+		R)
+	return Hex end
+
+
 ---#### (NOTE: This function is impure and has no return value. This should be changed eventually.)
 ---Gets a list of variables.
 ---@param listName string An identifier to avoid state collisions.
@@ -81,152 +490,13 @@ function clock.listen(id, interval)
 	end
 	return false
 end
----Alters opacity of a given color.
----@param col integer
----@param additiveOpacity integer A number corresponding to the addition to the alpha channel (0-255).
----@return number
----@overload fun(col: Vector4, additiveOpacity: number): Vector4
-function color.alterOpacity(col, additiveOpacity)
-	if (type(col) ~= 'number') then
-		return col + vector.New(0, 0, 0, additiveOpacity)
-	end
-	return col + math.floor(additiveOpacity) * 16777216
-end
-color.vctr.white = vector.New(1, 1, 1, 1)
-color.vctr.black = vector.New(0, 0, 0, 1)
-color.vctr.transparent = vector.New(0, 0, 0, 0)
-color.int.white = color.int.oWhiteMask * 255
-color.int.black = color.int.alphaMask * 255
-color.int.transparent = 0
-color.vctr.red = vector.New(1, 0, 0, 1)
-color.vctr.light_red = vector.New(1, 0.5, 0.5, 1)
-color.int.red = color.int.oRedMask * 255
-color.vctr.orange = vector.New(1, 0.5, 0, 1)
-color.vctr.light_orange = vector.New(1, 0.75, 0.5, 1)
-color.int.orange = 4278222975
-color.vctr.yellow = vector.New(1, 1, 0, 1)
-color.vctr.light_yellow = vector.New(1, 1, 0.5, 1)
-color.int.yellow = 4278255615
-color.vctr.green = vector.New(0, 1, 0, 1)
-color.vctr.light_green = vector.New(0.5, 1, 0.5, 1)
-color.int.green = color.int.oGreenMask * 255
-color.vctr.aqua = vector.New(0, 1, 1, 1)
-color.vctr.light_aqua = vector.New(0.5, 1, 1, 1)
-color.int.aqua = 4294967040
-color.vctr.blue = vector.New(0, 0, 1, 1)
-color.vctr.light_blue = vector.New(0.5, 0.5, 1, 1)
-color.int.blue = color.int.oBlueMask * 255
-color.vctr.purple = vector.New(1, 0, 1, 1)
-color.vctr.light_purple = vector.New(1, 0.5, 1, 1)
-color.int.purple = 4294901887
-color.vctr.magenta = vector.New(1, 0, 0.5, 1)
-color.vctr.light_magenta = vector.New(1, 0.5, 0.75, 1)
-color.int.magenta = 4286546175
+
 HEXADECIMAL = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' }
 NONDUA = { '!', '#', '$', '%', '&', "'", '(', ')', '*', '+', ',', '-', '.', '/', '0', '1', '2', '3', '4', '5', '6', '7',
 	'8', '9', ':', ';', '<', '=', '>', '?', '@', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N',
 	'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '[', ']', '^', '_', '`', 'a', 'b', 'c', 'd', 'e', 'f',
 	'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '{', '|', '}',
 	'~' }
----Converts rgba to an unsigned integer (0 - 4294967295).
----@param r integer
----@param g integer
----@param b integer
----@param a integer
----@return integer
-function color.rgbaToUint(r, g, b, a)
-	local flr = math.floor
-	return flr(a) * 16 ^ 6 + flr(b) * 16 ^ 4 + flr(g) * 16 ^ 2 + flr(r)
-end
----Converts rgba (in vector form) to an unsigned integer (0 - 4294967295).
----@param col Vector4
----@return integer
-function color.vrgbaToUint(col)
-	local flr = math.floor
-	return color.rgbaToUint(flr(col.x * 255), flr(col.y * 255), flr(col.z * 255), flr(col.w * 255))
-end
----Converts an unsigned integer to a Vector4 of color values (0-1 for each element).
----@param n integer
----@return Vector4
-function color.uintToRgba(n)
-	local tbl = {}
-	for i = 0, 3 do
-		table.insert(tbl, math.floor(n / 256 ^ i) % 256)
-	end
-	return table.vectorize4(tbl) / 255
-end
----Converts rgba to an ndua string (base 92).
----@param r integer
----@param g integer
----@param b integer
----@param a integer
----@return string
-function color.rgbaToNdua(r, g, b, a)
-	local uint = color.rgbaToUint(r, g, b, a)
-	local str = ''
-	for i = 0, 4 do
-		str = str .. NONDUA[math.floor(uint / (92 ^ i)) % 92 + 1]
-	end
-	return str:reverse()
-end
----Converts an ndua string (base 92) to an rgba Vector4 (0-1 for each element).
----@param ndua string
----@return Vector4
-function color.nduaToRgba(ndua)
-	local num = 0
-	for i = 1, 5 do
-		local idx = table.indexOf(NONDUA, ndua:charAt(i))
-		if (idx == -1) then goto nextIndex end
-		num = num + (idx - 1) * 92 ^ (5 - i)
-		::nextIndex::
-	end
-	return color.uintToRgba(num)
-end
----Converts a color to a Quaver-compatible string.
----@param vctr Vector4
----@return string
-function color.rgbaToStr(vctr)
-	local flr = math.floor
-	return table.concat({ flr(vctr.x * 255), flr(vctr.y * 255), flr(vctr.z * 255) }, ',')
-end
----Converts a Quaver-compatible string to an rgba Vector4.
----@param str string
----@return Vector4
-function color.strToRgba(str)
-	local rgb = {}
-	str:gsub('(%d+)', function(c)
-		table.insert(rgb, c)
-	end)
-	return vector.New(rgb[1] / 255, rgb[2] / 255, rgb[3] / 255, 1)
-end
----Converts hsl to an rgba `Vector4`, where `hue` is in degrees. The abstract formula comes from [Wikipedia](https://en.wikipedia.org/wiki/HSL_and_HSV#HSL_to_RGB_alternative).
----@param hue integer The hue in degrees.
----@param saturation number The saturation, within [0, 1].
----@param lightness number The lightness, within [0, 1].
----@param alpha number The opacity, within [0, 1].
----@return Vector4
-function color.hslaToRgba(hue, saturation, lightness, alpha)
-	local a = saturation * math.min(lightness, 1 - lightness)
-	local f = function(n)
-		local k = (n + (hue % 360) / 30) % 12
-		return lightness - a * math.max(-1, math.min(k - 3, 9 - k, 1))
-	end
-	return vector.New(f(0), f(8), f(4), alpha)
-end
- --Returns HEX
-color.RGBtoHEX = function(R, G, B, A)
-	local A = A and (string.contains(A, ".") and A*255 or A) or 255 
-	local Hex = string.format("%02X%02X%02X%02X", A, B, G, R)
-	return tonumber(Hex, 16) end
- --Returns U32
-color.RGBtoHEX = function(R, G, B, A)
-	local A = A and (A <= 1 and A*255 or A) or 255
-	local Hex = bit32.bor(
-		bit32.lshift(A, 24),
-		bit32.lshift(B, 16),
-		bit32.lshift(G, 8),
-		R)
-	return Hex end
 ---Generates a random color.
 ---@param includeAlpha boolean If false, alpha will always be 1.
 ---@return Vector4
@@ -247,602 +517,33 @@ generateRGBColor = function(ALPHA)
 	local A = ALPHA and Random() or 1
 	return vector.New(R, G, B, A) end
 end--do
-DataSheet =
-	{
-	BM = function(v)
-		return {StartTime = v.StartTime, Note = v.Note} end,
-	HO = function(v)
-		local endTime = v.EndTime
-		local endTime = (endTime ~= 0) and endTime
-		return {StartTime = v.StartTime, Lane = v.Lane, EndTime = endTime} end,
-	HO2 = function(v)
-		local endTime = v.IsLongNote and v.EndTime or nil
-		return {StartTime = v.StartTime, Lane = v.Lane, EndTime = endTime, HitSound = v.HitSound, EditorLayer = v.EditorLayer, TimingGroup = v.TimingGroup} end,
-	SF = function(v)
-		return {StartTime = v.StartTime, Multiplier = v.Multiplier} end,
-	SV = function(v)
-		return {StartTime = v.StartTime, Multiplier = v.Multiplier} end,
-	TP = function(v)
-		return {StartTime = v.StartTime, Bpm = v.Bpm} end,
-	TP2 = function(v)
-		return {StartTime = v.StartTime, Bpm = v.Bpm, Signature = v.Signature, Hidden = v.Hidden} end,
-	RAW = function(v)
-		return v end,
-	C1 = function(v, USER)
-		return v[USER] end,
-	}
-DataSheetDefault =
-	{
-	BM = function() return {StartTime = 0, Note = ""} end,
-	HO = function() return {StartTime = 0, Lane = 1, EndTime = 0} end,
-	HO2 = function()
-		return {StartTime = 0, Lane = 1, EndTime = 0, HitSound = nil, EditorLayer = nil, TimingGroup = nil} end,
-	SF = function() return {StartTime = 0, Multiplier = 1} end,
-	SV = function() return {StartTime = 0, Multiplier = 1} end,
-	TP = function() return {StartTime = 0, Bpm = 100} end,
-	TP2 = function()
-		return {StartTime = 0, Bpm = 100, Signature = 4, Hidden = false} end,
-	}
 
-function game.SetupSelection(START, END)
-	if START and END then
-		return START, END end
-	local Notes = state.SelectedHitObjects
-	return game.SetupOffsets(Notes) end
-function game.SetupOffsets(TABLE)
-	local TABLE = TABLE or state.SelectedHitObjects
-	if #TABLE == 0 then
-		return -1, -1 end
-	local Start, End = TABLE[1].StartTime, TABLE[#TABLE].StartTime
-	return Start, End end
---USER string|function
---DATA table
-function game.Create(USER, DATA)
-	local Table = {}
-	local USER = type(USER) == "function" and USER or utils[USER]
-	for i, v in ipairs(DATA) do
-		Table[i] = USER(unpack(v)) end
-	return Table end
-function game.GetString(STRING)
-	return DataSheet[STRING and STRING:upper()] or DataSheet["RAW"] end
---PERFORM boolean
---... {action, data}
-function game.Perform(PERFORM, ...)
-	local CreateEA = {}
-	for i, v in ipairs({...}) do
-		CreateEA[i] = createEA(v[1], v[2]) end
-	if not (PERFORM) then
-		return CreateEA end
-	actions.PerformBatch(CreateEA) end
-kit = {}
-function kit.FindFirst(TABLE, START)
-	local Start, End = 1, #TABLE
-	local Index = #TABLE + 1
-	while Start <= End do
-		local Mid = math.floor((Start + End)/2)
-		if TABLE[Mid].StartTime >= START then
-			Index, End = Mid, Mid - 1
-		else
-			Start = Mid + 1
-	end end
-	return Index end
-function kit.FindLast(TABLE, END)
-	local Start, End = 1, #TABLE
-	local Index = 0
-	while Start <= End do
-		local Mid = math.floor((Start + End)/2)
-		if TABLE[Mid].StartTime <= END then
-			Index, Start = Mid, Mid + 1
-		else
-			End = Mid - 1
-	end end
-	return Index end
- --Returns indexs of TABLE's values START and END
-  --Input: Time, Output: Index
---¿START ¿END numeric
-function game.FirstLast(TABLE, START, END)
-	local START, END = game.SetupSelection(START, END)
-	local START, END = kit.FindFirst(TABLE, START), kit.FindLast(TABLE, END)
-	return START, END end
- --Returns values of TABLE's indexes START and END
-  --Input: Index, Output: Table
---¿STRING string
---¿TABLE table
-function game.Between(STRING, START, END, TABLE)
-	if not (START and END) then return {} end
-	local Sheet = game.GetString(STRING)
-	local TABLE = TABLE or map.SelectedHitObjects
-	local Table, Index = {}, 0
-	for i = START, END do
-		local v = TABLE[i]
-		Index = Index + 1
-		Table[Index] = v end
-	return Table, START, END end
---¿STRING string
---¿USER string
-function game.Get(STRING, TABLE, USER)
-	local Sheet = game.GetString(STRING)
-	local Table = {}
-	if not USER then
-		for i, v in ipairs(TABLE) do
-			Table[i] = Sheet(v) end
-	else
-		for i, v in ipairs(TABLE) do
-			Table[i] = Sheet(v)[USER] end
-	end
-	return Table end
---¿STRING string
---¿TABLE table
---¿LN boolean
-function game.GetUnique(STRING, TABLE, LN)
-	if LN == nil then LN = globalVars.useEndTimeOffsets end
-	local Sheet = game.GetString(STRING)
-	local TABLE = TABLE or game.Get(STRING, state.SelectedHitObjects)
-	local Holder, Table, Index = {}, {}, 0
-	if not LN then
-		for i, v in ipairs(TABLE) do
-			local Data = Sheet(v)
-			if not Holder[Data.StartTime] then
-				Holder[Data.StartTime] = true
-				Index = Index + 1
-				Table[Index] = Data
-		end end
-	else
-		for i, v in ipairs(TABLE) do
-			local Data = Sheet(v)
-			if not Holder[Data.StartTime] then
-				Holder[Data.StartTime] = true
-				Index = Index+1
-				Table[Index] = Data
-			end
-			if Data.EndTime and not Holder[Data.EndTime] then
-				Holder[Data.EndTime] = true
-				Index = Index + 1
-				Table[Index] = Data
-		end end
-	end
-	return Table end
---¿STRING string
---¿TABLE table
---¿LN boolean
-function game.GetUniqueOffsets(STRING, TABLE, LN)
-	if LN == nil then LN = globalVars.useEndTimeOffsets end
-	local Sheet = game.GetString(STRING)
-	local TABLE = TABLE or game.Get(STRING, state.SelectedHitObjects)
-	local Holder, Table, Index = {}, {}, 0
-	if not LN then
-		for i, v in ipairs(TABLE) do
-			local Data = Sheet(v).StartTime
-			if not Holder[Data] then
-				Holder[Data] = true
-				Index = Index + 1
-				Table[Index] = Data
-		end end
-	else
-		for i, v in ipairs(TABLE) do
-			local Data = Sheet(v)
-			if not Holder[Data.StartTime] then
-				Holder[Data.StartTime] = true
-				Index = Index + 1
-				Table[Index] = Data.StartTime end
-			if Data.EndTime and not Holder[Data.EndTime] then
-				Holder[Data.EndTime] = true
-				Index = Index + 1
-				Table[Index] = Data.EndTime
-		end end
-	end
-	return Table end
-
---¿STRING string
---¿START ¿END numeric
---¿CUTEND boolean
-function game.Quarry(STRING, TABLE, START, END, CUTEND)
-	local Start, End = game.FirstLast(TABLE, START, END)
-	local Sheet = game.GetString(STRING)
-	local Table, Index = {}, 0
-	for i = Start, End do
-		Index = Index+1
-		Table[Index] = Sheet(TABLE[i]) end
-	if (CUTEND and (#Table < 1) and (Table[#Table].StartTime == END)) then table.remove(Table) end
-	return Table end
-
-function game.GetAt(STRING, DATA, USER)
-	if USER then
-		return DATA and DATA[USER] or DataSheetDefault[STRING]()[USER] end
-	return DATA and DATA or DataSheetDefault[STRING]()
-end
-
---¿TABLE table
---¿USELN boolean
-function game.AutoUnique(TABLE, USELN)
-	local UseLN = USELN ~= nil and USELN or globalVars.useEndTimeOffsets
-	local TABLE = game.Get("HO", state.SelectedHitObjects)
-	local TABLE = game.GetUnique("RAW", TABLE, UseLN)
-	if not UseLN then
-		-- print(TABLE)
-		return game.Get("RAW", TABLE, "StartTime")
-	else
-		local Table = {}
-		local Index = 0
-		for i, v in ipairs(TABLE) do
-			Index = Index+1
-			Table[Index] = v.StartTime
-			if v.EndTime and v.EndTime ~= 0 then
-				Index = Index+1
-				Table[Index] = v.EndTime end
-		end
-		print(Table, TABLE)
-		return table.sort(Table)
-	end
-end
----Gets the most recent timing point, or a dummy timing point if none exists.
----@param offset number
----@return TimingPoint
-function game.get.timingPointAt(offset)
-	local line = map.getTimingPointAt(offset)
-	return line and line or { StartTime = -69420, Bpm = 42.69, Signature = 4, Hidden = false }
-end
-game.get.timingPointAt = function(offset)
-	local TP = map.getTimingPointAt(offset)
-	return game.GetAt("TP", TP)
-end
-local SPECIAL_SNAPS = { 1, 2, 3, 4, 6, 8, 12, 16 }
----Gets the snap color from a given time.
----@param time number The time to reference.
----@param dontPrintInaccuracy? boolean If set to true, will not print warning messages on unconfident guesses.
----@return SnapNumber
-function game.get.snapAt(time, dontPrintInaccuracy)
-	local MAX_SNAP = 48
-	local previousBar = math.floor(map.GetNearestSnapTimeFromTime(false, 1, time + 6) or 0)
-	local barLength = 60000 / game.get.timingPointAt(state.SongTime).Bpm
-	local distanceAbovePrev = time - previousBar
-	if (distanceAbovePrev <= 5 or distanceAbovePrev >= barLength - 5) then return 1 end
-	local minSnapTime = barLength / MAX_SNAP
-	local checkingTime = 0
-	local index = -1
-	for _ = 1, MAX_SNAP do
-		if checkingTime > distanceAbovePrev then break end
-		checkingTime = checkingTime + minSnapTime
-		index = index + 1
-	end
-	if (math.abs(minSnapTime * (index + 1) - distanceAbovePrev) < math.abs(minSnapTime * index - distanceAbovePrev)) then
-		index = index + 1
-	end
-	-- Finds GCF between MAX_SNAP and given spacing
-	local divisor = MAX_SNAP
-	local div = index
-	local remainder = -1
-	while (remainder ~= 0) do
-		remainder = divisor % div
-		divisor = div
-		div = remainder
-	end
-	if (math.floor(MAX_SNAP / divisor) ~= MAX_SNAP / divisor) then return 5 end
-	if (MAX_SNAP / divisor > 16) then return 5 end
-	return MAX_SNAP / divisor
-end
----Gets the start time of the most recent SSF, or returns -1 if there is no SSF before the given offset.
----@param offset number
----@param tgId? string
----@return number
-function game.get.ssfStartTimeAt(offset, tgId)
-	local ssf = map.GetScrollSpeedFactorAt(offset, tgId)
-	if ssf then return ssf.StartTime end
-	return -1
-end
-game.get.ssfStartTimeAt = function(offset, tgId)
+-- editor.factors.at = {}
+--[[temp]]
+ssfStartTimeAt = function(offset, tgId)
 	local SF = map.GetScrollSpeedFactorAt(offset, tgId)
 	return game.GetAt("SF", SF, "StartTime")
 end
----Gets the multiplier of the most recent SSF, or returns 1 if there is no SSF before the given offset.
----@param offset number
----@param tgId? string
----@return number
-function game.get.ssfMultiplierAt(offset, tgId)
-	local ssf = map.GetScrollSpeedFactorAt(offset, tgId)
-	if ssf then return ssf.Multiplier end
-	return 1
-end
-game.get.ssfMultiplierAt = function(offset, tgId)
+
+ssfMultiplierAt = function(offset, tgId)
 	local SF = map.GetScrollSpeedFactorAt(offset, tgId)
 	return game.GetAt("SF", SF, "Multiplier")
 end
--- game.get.ssfMultiplierAt = function(offset, tgId)
-	-- return game.GetAt("SF", map.GetScrollSpeedFactorAt(offset, tgId), "Multiplier")
--- end	
----Gets the start time of the most recent SV, or returns -1 if there is no SV before the given offset.
----@param offset number
----@param tgId? string
----@return number
-function game.get.svStartTimeAt(offset, tgId)
-	local sv = map.GetScrollVelocityAt(offset, tgId)
-	if sv then return sv.StartTime end
-	return -1
-end
-game.get.svStartTimeAt = function(offset, tgId)
+
+svStartTimeAt = function(offset, tgId)
 	local SV = map.GetScrollVelocityAt(offset, tgId)
 	return game.GetAt("SV", SV, "StartTime")
 end
----Gets the multiplier of the most recent SV, or returns the initial scroll velocity or 1 if there is no SV before the given offset.
----@param offset number
----@param tgId? string
----@return number
-function game.get.svMultiplierAt(offset, tgId)
-	local sv = map.GetScrollVelocityAt(offset, tgId)
-	if sv then return sv.Multiplier end
-	local initTgSv = state.SelectedScrollGroup.InitialScrollVelocity
-	if truthy(initTgSv) then return initTgSv end
-	local initSV = map.InitialScrollVelocity
-	if truthy(initSV) then return initSV end
-	return 1
-end
-game.get.svMultiplierAt = function(offset, tgId)
+
+svMultiplierAt = function(offset, tgId)
 	local SV = map.GetScrollVelocityAt(offset, tgId)
 	return game.GetAt("SV", SV, "Multiplier")
 end
----Returns a list of [bookmarks](lua://Bookmark) between two times, inclusive.
----@param startOffset number The lower bound of the search area.
----@param endOffset number The upper bound of the search area.
----@return Bookmark[] bms All of the [bookmarks](lua://Bookmark) within the area.
-function game.get.bookmarksBetweenOffsets(startOffset, endOffset)
-	local bookmarksBetweenOffsets = {} ---@type Bookmark[]
-	for _, bm in ipairs(map.Bookmarks) do
-		local bmIsInRange = bm.StartTime >= startOffset and bm.StartTime < endOffset
-		if bmIsInRange then table.insert(bookmarksBetweenOffsets, bm) end
-	end
-	return sort(bookmarksBetweenOffsets, sortAscendingStartTime)
-end
-game.get.bookmarksBetweenOffsets = function(startOffset, endOffset)
-	return sort(game.Quarry("RAW", map.Bookmarks, startOffset, endOffset), sortAscendingStartTime)
-end
----Returns a list of [timing points](lua://TimingPoint) between two times, inclusive.
----@param startOffset number The lower bound of the search area.
----@param endOffset number The upper bound of the search area.
----@return TimingPoint[] tps All of the [timing points](lua://TimingPoint) within the area.
-function game.get.linesBetweenOffsets(startOffset, endOffset)
-	local linesBetweenoffsets = {} ---@type TimingPoint[]
-	for _, line in ipairs(map.TimingPoints) do
-		local lineIsInRange = line.StartTime >= startOffset and line.StartTime < endOffset
-		if lineIsInRange then table.insert(linesBetweenoffsets, line) end
-	end
-	return sort(linesBetweenoffsets, sortAscendingStartTime)
-end
-game.get.linesBetweenOffsets = function(startOffset, endOffset)
-	return sort(game.Quarry("RAW", map.TimingPoints, startOffset, endOffset), sortAscendingStartTime)
-end
----Returns a list of [hit objects](lua://HitObject) between two times, inclusive.
----@param startOffset number The lower bound of the search area.
----@param endOffset number The upper bound of the search area.
----@return HitObject[] objs All of the [hit objects](lua://HitObject) within the area.
-function game.get.notesBetweenOffsets(startOffset, endOffset)
-	local notesBetweenOffsets = {} ---@type HitObject[]
-	for _, note in ipairs(map.HitObjects) do
-		local noteIsInRange = note.StartTime >= startOffset and note.StartTime <= endOffset
-		if noteIsInRange then table.insert(notesBetweenOffsets, note) end
-	end
-	return sort(notesBetweenOffsets, sortAscendingStartTime)
-end
-game.get.notesBetweenOffsets = function(startOffset, endOffset)
-	return sort(game.Quarry("RAW", map.HitObjects, startOffset, endOffset), sortAscendingStartTime)
-end
----Returns a list of [scroll speed factors](lua://ScrollSpeedFactor) between two times, inclusive.
----@param startOffset number The lower bound of the search area.
----@param endOffset number The upper bound of the search area.
----@param includeEnd? boolean Whether or not to include any SVs on the end time.
----@param dontSort? boolean Whether or not to resort the SVs by startTime. Should be disabled on temporal collisions.
----@return ScrollSpeedFactor[] ssfs All of the [scroll speed factors](lua://ScrollSpeedFactor) within the area.
-function game.get.ssfsBetweenOffsets(startOffset, endOffset, includeEnd, dontSort)
-	local ssfsBetweenOffsets = {} ---@type ScrollSpeedFactor[]
-	local ssfs = map.ScrollSpeedFactors
-	if ssfs == nil then
-		ssfs = {}
-	else
-		for _, ssf in ipairs(map.ScrollSpeedFactors) do
-			local ssfIsInRange = ssf.StartTime >= startOffset and ssf.StartTime < endOffset
-			if (includeEnd and ssf.StartTime == endOffset) then ssfIsInRange = true end
-			if ssfIsInRange then table.insert(ssfsBetweenOffsets, ssf) end
-		end
-	end
-	if dontSort then return ssfsBetweenOffsets end
-	return sort(ssfsBetweenOffsets, sortAscendingStartTime)
-end
-game.get.ssfsBetweenOffsets = function(startOffset, endOffset, includeEnd, dontSort)
-	local SF = game.Quarry("RAW", map.ScrollSpeedFactors, startOffset, endOffset, includeEnd)
-	return dontSort and SF or sort(SF, sortAscendingStartTime)
-end
----Returns a list of [scroll velocities](lua://ScrollVelocity) between two times, inclusive.
----@param startOffset number The lower bound of the search area.
----@param endOffset number The upper bound of the search area.
----@param includeEnd? boolean Whether or not to include any SVs on the end time.
----@param dontSort? boolean Whether or not to resort the SVs by startTime. Should be disabled on temporal collisions.
----@return ScrollVelocity[] svs All of the [scroll velocities](lua://ScrollVelocity) within the area.
-function game.get.svsBetweenOffsets(startOffset, endOffset, includeEnd, dontSort)
-	local svsBetweenOffsets = {} ---@type ScrollVelocity[]
-	for _, sv in ipairs(map.ScrollVelocities) do
-		local svIsInRange = sv.StartTime >= startOffset and sv.StartTime < endOffset
-		if (includeEnd and sv.StartTime == endOffset) then svIsInRange = true end
-		if svIsInRange then table.insert(svsBetweenOffsets, sv) end
-	end
-	if dontSort then return svsBetweenOffsets end
-	return sort(svsBetweenOffsets, sortAscendingStartTime)
-end
-game.get.svsBetweenOffsets = function(startOffset, endOffset, includeEnd, dontSort)
-	local SV = game.Quarry("RAW", map.ScrollVelocities, startOffset, endOffset, includeEnd)
-	return dontSort and SV or sort(SV, sortAscendingStartTime)
-end
----Returns an array of all timing group ids, including `$DEFAULT` and `$GLOBAL`.
----@return string[]
-function game.get.timingGroupList()
-	local baseList = table.keys(map.TimingGroups)
-	local defaultIndex = table.indexOf(baseList, '$Default')
-	table.remove(baseList, defaultIndex)
-	local globalIndex = table.indexOf(baseList, '$Global')
-	table.remove(baseList, globalIndex)
-	table.insert(baseList, 1, '$Default')
-	table.insert(baseList, 2, '$Global')
-	return baseList
-end
----Finds and returns a list of all unique offsets of notes between selected notes [Table]
----@param includeLN? boolean
----@return number[]	
-function game.get.uniqueNoteOffsetsBetweenSelected(includeLN)
-	local selectedNoteOffsets = game.get.uniqueSelectedNoteOffsets()
-	if (not truthy(selectedNoteOffsets)) then
-		return {}
-	end
-	local startOffset = selectedNoteOffsets[1]
-	local endOffset = selectedNoteOffsets[#selectedNoteOffsets]
-	local offsets = game.get.uniqueNoteOffsetsBetween(startOffset, endOffset, includeLN)
-	if (#offsets < 2) then
-		return {}
-	end
-	return offsets
-end
-game.get.uniqueNoteOffsetsBetweenSelected = function(includeLN)
-	return game.GetUniqueOffsets("HO", nil, includeLN)
-end
----Returns a list of unique offsets (in increasing order) of selected notes [Table]
----@return number[]
-function game.get.uniqueSelectedNoteOffsets()
-	local offsets = {}
-	for _, ho in pairs(state.SelectedHitObjects) do
-		table.insert(offsets, ho.StartTime)
-		if (ho.EndTime ~= 0 and globalVars.useEndTimeOffsets) then table.insert(offsets, ho.EndTime) end
-	end
-	if (not truthy(offsets)) then return {} end
-	offsets = table.dedupe(offsets)
-	offsets = sort(offsets, sortAscending)
-	return offsets
-end
-game.get.uniqueSelectedNoteOffsets = function(TABLE)
-	return game.GetUniqueOffsets("HO", TABLE)
-end
 
----Returns an array of hit objects within the selection time.
----@return HitObject[]
-function game.get.uniqueNotesBetweenSelected()
-	local selectedNoteOffsets = game.get.uniqueSelectedNoteOffsets()
-	if (not truthy(selectedNoteOffsets)) then
-		return {}
-	end
-	local startOffset = selectedNoteOffsets[1]
-	local endOffset = selectedNoteOffsets[#selectedNoteOffsets]
-	local hos = game.get.notesBetweenOffsets(startOffset, endOffset)
-	if (#hos < 2) then
-		return {}
-	end
-	return hos
-end
-game.get.uniqueNotesBetweenSelected = function()
-	return game.GetUnique("RAW", state.SelectedHitObjects, globalVars.useEndTimeOffsets)
-end
----Finds and returns a list of all unique offsets of notes between a start and an end time [Table]
----@param startOffset number
----@param endOffset number
----@param includeLN? boolean
----@return number[]
-function game.get.uniqueNoteOffsetsBetween(startOffset, endOffset, includeLN)
-	local noteOffsetsBetween = {}
-	includeLN = includeLN or globalVars.useEndTimeOffsets
-	for _, ho in ipairs(map.HitObjects) do
-		if ho.StartTime >= startOffset and ho.StartTime <= endOffset then
-			local skipNote = false
-			if (state.SelectedScrollGroupId ~= ho.TimingGroup and globalVars.ignoreNotesOutsideTg) then skipNote = true end
-			if (ho.StartTime == startOffset or ho.StartTime == endOffset) then skipNote = false end
-			if skipNote then goto nextNote end
-			table.insert(noteOffsetsBetween, ho.StartTime)
-			if (ho.EndTime ~= 0 and ho.EndTime <= endOffset and includeLN) then
-				table.insert(noteOffsetsBetween,
-					ho.EndTime)
-			end
-			::nextNote::
-		end
-		if includeLN and ho.EndTime >= startOffset and ho.EndTime <= endOffset then
-			table.insert(noteOffsetsBetween, ho.EndTime)
-		end
-	end
-	noteOffsetsBetween = table.dedupe(noteOffsetsBetween)
-	noteOffsetsBetween = sort(noteOffsetsBetween, sortAscending)
-	return noteOffsetsBetween
-end
-game.get.uniqueNoteOffsetsBetween = function(startOffset, endOffset, includeLN)
-	local Notes = game.Quarry("RAW", map.HitObjects, startOffset, endOffset)
-	return game.GetUniqueOffsets("RAW", Notes, includeLN)
-end
----Returns the center of the window (in pixels).
----@return Vector2 center
-function game.window.getCenter()
-	local windowDim = state.WindowSize
-	return vector.New(state.WindowSize[1] / 2, state.WindowSize[2] / 2)
-end
----Listens to the keyboard and returns specific values based on if keys are pressed.
----@return string[] prefixes An array of prefixes like "Ctrl" or "Shift".
----@return integer key The key enum of the pressed key.
-function kbm.listenForAnyKeyPressed()
-	local isCtrlHeld = utils.IsKeyDown(keys.LeftControl) or utils.IsKeyDown(keys.RightControl)
-	local isShiftHeld = utils.IsKeyDown(keys.LeftShift) or utils.IsKeyDown(keys.RightShift)
-	local isAltHeld = utils.IsKeyDown(keys.LeftAlt) or utils.IsKeyDown(keys.RightAlt)
-	local key = -1
-	local prefixes = {}
-	if isCtrlHeld then table.insert(prefixes, 'Ctrl') end
-	if isShiftHeld then table.insert(prefixes, 'Shift') end
-	if isAltHeld then table.insert(prefixes, 'Alt') end
-	for i = 65, 90 do
-		if (utils.IsKeyPressed(i)) then
-			key = i
-		end
-	end
-	return prefixes, key
-end
----Gets the amount of distance the mouse moved THIS FRAME.
----@param button? ImGuiMouseButton
----@return Vector2 delta
-function kbm.mouseDelta(button)
-	local delta = imgui.GetMouseDragDelta(button or 0)
-	imgui.ResetMouseDragDelta(button or 0)
-	return delta
-end
 ALPHABET_LIST = { 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S',
 	'T', 'U', 'V', 'W', 'X', 'Y', 'Z' }
----Converts a key enum to a specific character.
----@param num integer
----@return string
-function kbm.numToKey(num)
-	return ALPHABET_LIST[math.clamp(num - 64, 1, #ALPHABET_LIST)]
-end
----Returns true if the given key combo is pressed (e.g. "Ctrl+Shift+L")
----@param keyCombo string
----@return boolean
-function kbm.pressedKeyCombo(keyCombo)
-	if (imgui.IsAnyItemActive() or not keyCombo or keyCombo == 'NONE') then return false end
-	keyCombo = keyCombo:upper()
-	local comboList = {}
-	for v in keyCombo:gmatch('[%u%d]+') do
-		table.insert(comboList, v)
-	end
-	local keyReq = comboList[#comboList]
-	local ctrlHeld = utils.IsKeyDown(keys.LeftControl) or utils.IsKeyDown(keys.RightControl)
-	local shiftHeld = utils.IsKeyDown(keys.LeftShift) or utils.IsKeyDown(keys.RightShift)
-	local altHeld = utils.IsKeyDown(keys.LeftAlt) or utils.IsKeyDown(keys.RightAlt)
-	if (table.contains(comboList, 'CTRL') ~= ctrlHeld) then
-		return false
-	end
-	if (table.contains(comboList, 'SHIFT') ~= shiftHeld) then
-		return false
-	end
-	if (table.contains(comboList, 'ALT') ~= altHeld) then
-		return false
-	end
-	local keyReqNum = keys[keyReq]
-	if (keyReq:find('^%d$')) then
-		keyReqNum = tn(keyReq) + 48
-	end
-	if (not keyReqNum) then
-		return false
-	end
-	return utils.IsKeyPressed(keyReqNum)
-end
-kbm.executedKeyCombo = kbm.pressedKeyCombo
+
+
 ---Evaluates a simplified one-dimensional cubic bezier expression with points (0, p2, p3, 1).
 ---@param p2 number The second point in the cubic bezier.
 ---@param p3 number The third point in the cubic bezier.
@@ -1074,39 +775,12 @@ function matrix.solve(mtrx, vctr)
 	end
 	return table.property(augMtrx, #mtrx + 1) -- Last Column
 end
----Rounds a number to a given amount of decimal places.
----@param number number
----@param decimalPlaces? integer
----@return number
-function math.round(number, decimalPlaces)
-	if (not decimalPlaces) then decimalPlaces = 0 end
-	local multiplier = 10 ^ decimalPlaces
-	return math.floor(multiplier * number + 0.5) / multiplier
-end
---NUM, DECIMAL numeric
-math.round = function(NUM, DECIMAL)
-	local Notation = 10^(DECIMAL or 0)
-	return math.floor(NUM*Notation + 0.5)/Notation end
---NUM, PRECISION numeric
-math.roundBinary = function(NUM, PRECISION)
-	return math.floor(NUM*PRECISION + 0.5)/PRECISION end
-math.minmax = function(...)
-	return math.min(...), math.max(...) end
-do
-	local Infinite = 1/0
-	local NaN = 0/0
-math.infinite = function()
-	return Infinite end
-math.NaN = function()
-	return NaN end
-end--do
+
 ---Returns the sign of a number: `1` if the number is non-negative, `-1` if negative.
 ---@param number number
 ---@return 1|-1
 function math.sign(number)
-	if number >= 0 then return 1 end
-	return -1
-end
+	return number >= 0 and 1 or -1 end
 ---Alias of [tonumber](lua://tonumber) for type coercion. Converts boolean values into their respective binary digits.
 ---@param x? string | number | boolean
 ---@return number
@@ -1117,116 +791,70 @@ function math.toNumber(x)
 	return result
 end
 tn = math.toNumber
----Wraps a number to an interval; that is, if the number is greater than the lower bound, continuously adds the difference until it reaches the upper bound, and vice versa.
----@param n number
----@param lowerBound number
----@param upperBound number
----@param discrete? boolean Whether or not to wrap discretely - that is, in a range of 1 to n, if given 0, will return n instead of n - 1. Check [OBOE or fencepost error](https://en.wikipedia.org/wiki/Off-by-one_error).
----@return number
-function math.wrap(n, lowerBound, upperBound, discrete)
-	if upperBound <= lowerBound then return n end
-	if (n >= lowerBound and n <= upperBound) then return n end
-	local additionFactor = math.toNumber(discrete)
-	local diff = upperBound - lowerBound
-	while (n < lowerBound) do
-		n = n + diff + additionFactor
-	end
-	while (n > upperBound) do
-		n = n - diff - additionFactor
-	end
-	return n
-end
---Whole wrap, keeps negative values
--- A, B numeric
-math.wrapWhole = function(A, B)
-	local a, b = math.modf(A/B)
-	return math.round(B * b, 12), a end
---Standard wrap, always positive
-math.wrapStandard = function(A, B)
-	return A % B, math.floor(A/B) end
----Restricts a number to be within a closed ring.
----@param number number
----@param lowerBound number
----@param upperBound number
----@return number
-function math.wrappedClamp(number, lowerBound, upperBound)
-	if number < lowerBound then return upperBound end
-	if number > upperBound then return lowerBound end
-	return number
-end
-CONSONANTS = { 'B', 'C', 'D', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'X', 'Z' }
----Very rudimentary function that returns a string depending on whether or not it should be plural.
----@param str string The inital string, which should be a noun (e.g. `bookmark`)
----@param val number The value, or count, of the noun, which will determine if it should be plural.
----@param pos? integer Where the pluralization letter(s) should be inserted.
----@return string pluralizedStr A new string that is pluralized if `val ~= 1`.
-function pluralize(str, val, pos)
-	local strEnding = ''
-	if pos then
-		strEnding = str:sub(pos + 1, -1)
-		str = str:sub(1, pos)
-	end
-	local finalStrTbl = { str, 's' }
-	if val == 1 then return str .. (strEnding or '') end
-	local lastLetter = str:sub(-1):upper()
-	local secondToLastLetter = str:charAt(-2):upper()
-	if (lastLetter == 'Y' and table.contains(CONSONANTS, secondToLastLetter)) then
-		finalStrTbl[1] = finalStrTbl[1]:sub(1, -2)
-		finalStrTbl[2] = 'ies'
-	end
-	if (str:sub(-3):lower() == 'quy') then
-		finalStrTbl[1] = finalStrTbl[1]:sub(1, -2)
-		finalStrTbl[2] = 'ies'
-	end
-	if (table.contains({ 'J', 'S', 'X', 'Z' }, lastLetter) or table.contains({ 'SH', 'CH' }, str:sub(-2))) then
-		finalStrTbl[2] = 'es'
-	end
-	return table.concat(finalStrTbl) .. (strEnding or '')
-end
+
+local H0 = {B = true, C = true, D = true, F = true, G = true, H = true, J = true, K = true, L = true, M = true, N = true, P = true, Q = true, R = true, S = true, T = true, V = true, W = true, X = true, Z = true,}
+local H1 = {J = true, S = true, X = true, Z = true} 
+local H2 = {CH = true, SH = true} 
+function string.plural(STRING)
+	local End = STRING:sub(-2):upper()
+	local Last = End:sub(1, 1), End:sub(2, 2)
+	local Split = 0
+	local Plural
+	if H2[End] or H1[Last] then
+		Split = -0
+		Plural = "es"
+	else
+		local First = End:sub(1, 1)
+		if (Last == 'Y' and H0[First]) then
+			Split = -1
+			Plural = "ies"
+	end	end
+	STRING = Split > 0 and STRING:sub(Split) or STRING
+	return STRING..(Plural or "s") end
 ---Capitalizes the first letter of the given string. If `forceLowercase` is true, then all other letters will be forced into lowercase.
----@param str string
+---@param STRING string
 ---@param forceLowercase? boolean
 ---@return string
-function string.capitalize(str, forceLowercase)
-	local secondPortion = str:sub(2)
+function string.capitalize(STRING, forceLowercase)
+	local secondPortion = STRING:sub(2)
 	if forceLowercase then secondPortion = secondPortion:lower() end
-	return str:charAt(1):upper() .. secondPortion
+	return STRING:charAt(1):upper() .. secondPortion
 end
 ---Returns the `idx`th character in a string. Simply used for shorthand. Also supports negative indexes.
----@param str string The string to search.
+---@param STRING string The string to search.
 ---@param idx integer If positive, returns the `i`th character. If negative, returns the `i`th character from the end of the string (e.g. -1 returns the last character).
 ---@return string
-function string.charAt(str, idx)
-	return str:sub(idx, idx)
+function string.charAt(STRING, idx)
+	return STRING:sub(idx, idx)
 end
 ---Changes a string to fit a certain size, with a ... at the end.
----@param str string
+---@param STRING string
 ---@param targetSize integer
 ---@return string dottedStr
-function string.fixToSize(str, targetSize)
-	local size = imgui.CalcTextSize(str).x
-	if size <= targetSize then return str end
-	while (str:len() > 3 and size > targetSize) do
-		str = str:sub(1, -2)
-		size = imgui.CalcTextSize(str .. '...').x
+function string.fixToSize(STRING, targetSize)
+	local size = imgui.CalcTextSize(STRING).x
+	if size <= targetSize then return STRING end
+	while (STRING:len() > 3 and size > targetSize) do
+		STRING = STRING:sub(1, -2)
+		size = imgui.CalcTextSize(STRING .. '...').x
 	end
-	return str .. '...'
+	return STRING .. '...'
 end
 ---Removes spaces and turns a string into lowerCamelCase. Also removes special characters.
----@param str string
+---@param STRING string
 ---@return string
-function string.identify(str)
-	newStr = str:gsub('[%s%(%)#&]+', '')
+function string.identify(STRING)
+	newStr = STRING:gsub('[%s%(%)#&]+', '')
 	newStr = newStr:charAt(1):lower() .. newStr:sub(2)
 	return newStr
 end
-function string.obfuscate(str)
+function string.obfuscate(STRING)
 	local newStr = ''
-	local originalSize = imgui.CalcTextSize(str).x
+	local originalSize = imgui.CalcTextSize(STRING).x
 	local unchangingLetters = { ' ', '#' }
-	for i = 1, str:len() do
-		if (table.includes(unchangingLetters, str:charAt(i)) or math.random() < 0.5) then
-			newStr = newStr .. str:charAt(i)
+	for i = 1, STRING:len() do
+		if (table.includes(unchangingLetters, STRING:charAt(i)) or math.random() < 0.5) then
+			newStr = newStr .. STRING:charAt(i)
 		else
 			newStr = newStr .. ALPHABET_LIST[math.random(1, 26)]:lower()
 		end
@@ -1238,24 +866,45 @@ function string.obfuscate(str)
 	return newStr
 end
 ---Lots of imgui functions have ## in them as identifiers. This will remove everything after the ##.
----@param str string
+---@param STRING string
 ---@return string
-function string.removeTrailingTag(str)
+function string.removeTrailingTag(STRING)
 	local newStr = {}
-	for i = 1, str:len() do
-		if (str:charAt(i) == '#' and str:charAt(i + 1) == '#') then break end
-		table.insert(newStr, str:charAt(i))
+	for i = 1, STRING:len() do
+		if (STRING:charAt(i) == '#' and STRING:charAt(i + 1) == '#') then break end
+		table.insert(newStr, STRING:charAt(i))
 	end
 	return table.concat(newStr)
 end
+do
+local Alphabet =
+	{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"}
+local Numbers = {}
+for i = 0, 9 do Numbers[i] = i end
+local Table =
+	{
+	[1] = {unpack(Numbers), unpack(Alphabet)},
+	[2] = Numbers,
+	[3] = Alphabet,
+	}
+string.random = function(LENGTH)
+	local String = ''
+	local Mix = Table[random(1, 3)]
+	local Count = #Mix
+	for i = 1, LENGTH do
+		String = String..random(1, Count)
+	end
+	return String
+end
+end--do
 ---Removes vowels from a string.
----@param str string
+---@param STRING string
 ---@return string
-function string.removeVowels(str)
+function string.removeVowels(STRING)
 	local VOWELS = { 'a', 'e', 'i', 'o', 'u', 'y' }
 	local newStr = ''
-	for i = 1, str:len() do
-		local char = str:charAt(i)
+	for i = 1, STRING:len() do
+		local char = STRING:charAt(i)
 		if (not table.contains(VOWELS, char)) then
 			newStr = newStr .. char
 		end
@@ -1263,20 +912,20 @@ function string.removeVowels(str)
 	return newStr
 end
 ---Shortens a string to three consonants; the first, the second, and the last.
----@param str string
+---@param STRING string
 ---@return string
-function string.shorten(str)
-	local consonants = str:removeVowels()
+function string.shorten(STRING)
+	local consonants = STRING:removeVowels()
 	if (consonants:len() < 3) then return consonants end
 	return table.concat({ consonants:charAt(1), consonants:charAt(2), consonants:charAt(-1) })
 end
 ---Splits a string into a table via the given separator.
----@param str string
+---@param STRING string
 ---@param sep string
 ---@return string[]
-function string.split(str, sep)
+function string.split(STRING, sep)
 	local tbl = {}
-	for s in str:gmatch('([^' .. sep .. ']+)') do
+	for s in STRING:gmatch('([^' .. sep .. ']+)') do
 		table.insert(tbl, s)
 	end
 	return tbl
@@ -1338,6 +987,14 @@ function table.construct(...)
 	setmetatable(tbl, { __index = table })
 	return tbl
 end
+table.construct = function(...)
+	local Table = {}
+	for i, v in ipairs({...}) do
+		Table[i] = v
+	end
+	setmetatable(Table, { __index = table })
+	return Table
+end
 ---Creates a new array with a custom metatable, allowing for `:` syntactic sugar. All elements will be the given item.
 ---@generic T: string | number | boolean | table
 ---@param item T The entry to use.
@@ -1377,6 +1034,16 @@ function table.dedupe(tbl)
 	end
 	return newTbl
 end
+table.unique = function(TABLE)
+	local Table, Holder = {}, {}
+	local Index = 0
+	for i, v in ipairs(TABLE) do
+		if not Holder[v] then
+			Holder[v] = true
+			Index = Index + 1
+			Table[Index] = v
+	end end
+	return Table end
 ---Returns a deep copy of a table.
 ---@generic T : table
 ---@param tbl T The original table.
@@ -1430,6 +1097,15 @@ function table.keys(tbl)
 	end
 	return table.dedupe(resultsTbl)
 end
+table.keys = function(TABLE)
+	local Table = table.construct()
+	local Index = 0
+	for i, _ in pairs(TABLE) do
+		Index = Index + 1
+		Table[Index] = i
+	end
+	return table.dedupe(Table)
+end
 ---Transforms an array element-wise using a given function.
 ---@generic T: string | number | boolean
 ---@generic U
@@ -1468,46 +1144,46 @@ function table.normalize(values, targetAverage, includeLastValue)
 	return newValues
 end
 ---Converts a string (generated from [table.stringify](lua://table.stringify)) into a table.
----@param str string
+---@param STRING string
 ---@return any
-function table.parse(str)
-	if (str == 'FALSE' or str == 'TRUE') then return str == 'TRUE' end
-	if (str:charAt(1) == '"') then return str:sub(2, -2) end
-	if (str:match('^%-?%d+$') or str:match('^%-?%d+E[%+%-]%d+$')) then return math.toNumber(str) end
-	if (str:match('^%-?%.%d+$') or str:match('^%-?%.%d+E[%+%-]%d+$')) then return math.toNumber(str) end
-	if (str:match('^%-?%d+%.%d+$') or str:match('^%-?%d+%.%d+E[%+%-]%d+$')) then return math.toNumber(str) end
-	if (not table.contains({ '{', '[' }, str:charAt(1))) then
+function table.parse(STRING)
+	if (STRING == 'FALSE' or STRING == 'TRUE') then return STRING == 'TRUE' end
+	if (STRING:charAt(1) == '"') then return STRING:sub(2, -2) end
+	if (STRING:match('^%-?%d+$') or STRING:match('^%-?%d+E[%+%-]%d+$')) then return math.toNumber(STRING) end
+	if (STRING:match('^%-?%.%d+$') or STRING:match('^%-?%.%d+E[%+%-]%d+$')) then return math.toNumber(STRING) end
+	if (STRING:match('^%-?%d+%.%d+$') or STRING:match('^%-?%d+%.%d+E[%+%-]%d+$')) then return math.toNumber(STRING) end
+	if (not table.contains({ '{', '[' }, STRING:charAt(1))) then
 		print('e!',
 			'Something really bad has happened with the parsing algorithm weewooweewoo please report this to the Discord thanks!!!!!!!!!')
-		error(str)
-		return str
+		error(STRING)
+		return STRING
 	end
-	if (str:charAt(1) == '{' and str:charAt(2) == '}') or (str:charAt(1) == '[' and str:charAt(2) == ']') then return {} end
-	local tableType = str:charAt(1) == '[' and 'arr' or 'dict'
+	if (STRING:charAt(1) == '{' and STRING:charAt(2) == '}') or (STRING:charAt(1) == '[' and STRING:charAt(2) == ']') then return {} end
+	local tableType = STRING:charAt(1) == '[' and 'arr' or 'dict'
 	local tbl = {}
 	local terms = {}
 	local MAX_ITERATIONS = 10000
 	for i = 1, MAX_ITERATIONS do
-		local nestedTableFactor = tn(table.contains({ '[', '{' }, str:charAt(2)))
+		local nestedTableFactor = tn(table.contains({ '[', '{' }, STRING:charAt(2)))
 		local depth = nestedTableFactor
 		local searchIdx = 2 + nestedTableFactor
 		local inQuotes = false
-		while (searchIdx < str:len()) do
-			if (str:charAt(searchIdx) == '"') then
+		while (searchIdx < STRING:len()) do
+			if (STRING:charAt(searchIdx) == '"') then
 				inQuotes = not inQuotes
 			end
-			if (table.contains({ ']', '}' }, str:charAt(searchIdx)) and not inQuotes) then
+			if (table.contains({ ']', '}' }, STRING:charAt(searchIdx)) and not inQuotes) then
 				depth = depth - 1
 			end
-			if (table.contains({ '[', '{' }, str:charAt(searchIdx)) and not inQuotes) then
+			if (table.contains({ '[', '{' }, STRING:charAt(searchIdx)) and not inQuotes) then
 				depth = depth + 1
 			end
-			if ((str:charAt(searchIdx) == ',' or nestedTableFactor == 1) and not inQuotes and depth == 0) then break end
+			if ((STRING:charAt(searchIdx) == ',' or nestedTableFactor == 1) and not inQuotes and depth == 0) then break end
 			searchIdx = searchIdx + 1
 		end
-		table.insert(terms, str:sub(2, searchIdx + nestedTableFactor - 1))
-		str = str:sub(searchIdx + nestedTableFactor)
-		if (str:len() <= 1) then break end
+		table.insert(terms, STRING:sub(2, searchIdx + nestedTableFactor - 1))
+		STRING = STRING:sub(searchIdx + nestedTableFactor)
+		if (STRING:len() <= 1) then break end
 	end
 	if (tableType == 'arr') then
 		for k7 = 1, #terms do
@@ -1645,19 +1321,19 @@ function table.stringify(var)
 	if (Type == 'number') then return var end
 	if (Type ~= 'table') then return 'UNKNOWN' end
 	if (var[1] ~= nil) then
-		local str = '['
+		local STRING = '['
 		for k10 = 1, #var do
 			local v = var[k10]
-			str = str .. table.stringify(v) .. ','
+			STRING = STRING .. table.stringify(v) .. ','
 		end
-		return str:sub(1, -2) .. ']'
+		return STRING:sub(1, -2) .. ']'
 	end -- from below, must be a key-value table
 	if (not truthy(table.keys(var))) then return '[]' end
-	local str = '{'
+	local STRING = '{'
 	for k, v in pairs(var) do
-		str = str .. k .. '=' .. table.stringify(v) .. ','
+		STRING = STRING .. k .. '=' .. table.stringify(v) .. ','
 	end
-	return str:sub(1, -2) .. '}'
+	return STRING:sub(1, -2) .. '}'
 end
 table.stringify = function(var)
 	local Type = type(var)
@@ -1666,19 +1342,19 @@ table.stringify = function(var)
 	if (Type == 'number') then return var end
 	if (Type ~= 'table') then return 'UNKNOWN' end
 	if (var[1] ~= nil) then
-		local str = '['
+		local STRING = '['
 		for i = 1, #var do
 			local v = var[i]
-			str = str .. table.stringify(v) .. ','
+			STRING = STRING .. table.stringify(v) .. ','
 		end
-		return str:sub(1, -2) .. ']'
+		return STRING:sub(1, -2) .. ']'
 	end -- from below, must be a key-value table
 	if (not truthy(table.keys(var))) then return '[]' end
-	local str = '{'
+	local STRING = '{'
 	for k, v in pairs(var) do
-		str = str .. k .. '=' .. table.stringify(v) .. ','
+		STRING = STRING .. k .. '=' .. table.stringify(v) .. ','
 	end
-	return str:sub(1, -2) .. '}'
+	return STRING:sub(1, -2) .. '}'
 end
 ---When given a dictionary and table of keys, returns a new table with only the specified keys and values.
 ---@generic T table
@@ -3167,34 +2843,33 @@ function placeSVs(menuVars, place, optionalStart, optionalEnd, optionalDistance,
 	svsToAdd = table.combine(svsToAdd, stillSVResult.svsToAdd)
 	return { svsToRemove = svsToRemove, svsToAdd = svsToAdd }
 end
-placeSVs = function(menuVars, place, optionalStart, optionalEnd, optionalDistance, queuedSVs)
-	local offsets = game.GetUniqueOffsets("HO", state.SelectedHitObjects)
-	if (#offsets < 1) then return end
-	local finalSVType = FINAL_SV_TYPES[menuVars.settingVars.finalSVIndex]
-	local placingStillSVs = menuVars.noteSpacing ~= nil
-	local numMultipliers = #menuVars.svMultipliers
-	local Add = {}
+placeSVs = function(menuVars, place, START, END, optionalDistance, queuedSVs)
 	local Remove
+	local Offsets
 	if placingStillSVs then
-		offsets = table.dedupe(offsets)
 		if place == false then
-			offsets = game.get.uniqueNoteOffsetsBetween(optionalStart, optionalEnd) end
-		offsets = {firstOffset, lastOffset}
+			Offsets = game.AutoUnique(nil, nil, START, END)
+		else
+			Offsets = game.AutoUnique()
+		end
 	else
+		Offsets = kit.Get("COSval", nil, "StartTime")
 		if globalVars.dontReplaceSV then
 			Remove = {}
 		else
 			Remove = game.Quarry("RAW", map.ScrollVelocities, false, false, finalSVType == 'Override')
 		end
 	end
-	local firstOffset = offsets[1]
-	local lastOffset = offsets[#offsets]
-	
-	
-	
-	for i = 1, #offsets - 1 do
-		local Start = offsets[i]
-		local End = offsets[i + 1]
+	if (#Offsets < 1) then return end
+	local finalSVType = FINAL_SV_TYPES[menuVars.settingVars.finalSVIndex]
+	local placingStillSVs = menuVars.noteSpacing ~= nil
+	local numMultipliers = #menuVars.svMultipliers
+	local Add = {}
+	local firstOffset = Offsets[1]
+	local lastOffset = Offsets[#Offsets]
+	for i = 1, #Offsets - 1 do
+		local Start = Offsets[i]
+		local End = Offsets[i + 1]
 		local svOffsets = generateLinearSet(Start, End, #menuVars.svDistances)
 		for j = 1, #svOffsets - 1 do
 			local offset = svOffsets[j]
@@ -3213,7 +2888,6 @@ placeSVs = function(menuVars, place, optionalStart, optionalEnd, optionalDistanc
 			Add = table.combine(Add, stillSVResult.Add)
 		end
 		if (finalSVType ~= 'None') then
-			print(lastMultiplier)
 			addFinalSV(Add, lastOffset, lastMultiplier, finalSVType == 'Override')
 		end
 		removeAndAddSVs(Remove, Add)
@@ -3299,6 +2973,63 @@ function getStillSVs(menuVars, optionalStart, optionalEnd, svs, retroactiveSVRem
 		end
 		local baseSVs = table.duplicate(svs)
 		prepareDisplacingSVs(noteOffset, svsToAdd, svTimeIsAdded, beforeDisplacement,
+			atDisplacement, afterDisplacement, true, baseSVs)
+	end
+	getRemovableSVs(svsToRemove, svTimeIsAdded, firstOffset, lastOffset, retroactiveSVRemovalTable)
+	while (svsToAdd[#svsToAdd].StartTime == optionalEnd) do
+		table.remove(svsToAdd, #svsToAdd)
+	end
+	return { svsToRemove = svsToRemove, svsToAdd = svsToAdd }
+end
+getStillSVs = function(menuVars, START, END, svs, retroactiveSVRemovalTable, queuedSVs)
+	local stillType = STILL_TYPES[menuVars.stillTypeIndex]
+	local noteSpacing = menuVars.noteSpacing
+	local stillDistance = menuVars.stillDistance
+	-- local Notes = game.Quarry("RAW", map.HitObjects, START, END) 
+	local Offsets = game.AutoUnique(nil, true)
+	print(Offsets)
+	local Additate, Remidate = {}, {}
+	if #Offsets == 0 then return { svsToRemove = Remidate, svsToAdd = Additate } end
+	local firstOffset = Offsets[1]
+	local lastOffset = Offsets[#Offsets]
+	local svMultFn =
+		truthy(queuedSVs)
+		and function(t) return getHypotheticalSVMultiplierAt(queuedSVs, t) end
+		or game.get.svMultiplierAt
+	if stillType == 'Auto' then
+		local multiplier = getUsableDisplacementMultiplier(firstOffset)
+		local duration = 1 / multiplier
+		local timeBefore = firstOffset - duration
+		multiplierBefore = svMultFn(timeBefore)
+		stillDistance = multiplierBefore * duration
+	elseif stillType == 'Otua' then
+		local multiplier = getUsableDisplacementMultiplier(lastOffset)
+		local duration = 1 / multiplier
+		local timeAt = lastOffset
+		local multiplierAt = svMultFn(timeAt)
+		stillDistance = -multiplierAt * duration
+	end
+	local svsToAdd = Additate
+	local svsToRemove = Remidate
+	local svTimeIsAdded = {}
+	local svsBetweenOffsets = getHypotheticalSVsBetweenOffsets(svs, firstOffset, lastOffset)
+	local svDisplacements = calculateDisplacementsFromSVs(svsBetweenOffsets, Offsets)
+	local nsvDisplacements = calculateDisplacementsFromNotes(Offsets, noteSpacing)
+	local finalDisplacements = calculateStillDisplacements(stillType, stillDistance, svDisplacements, nsvDisplacements)
+	for i = 1, #Offsets do
+		local Offset = Offsets[i]
+		local beforeDisplacement = nil
+		local atDisplacement = 0
+		local afterDisplacement = nil
+		if i ~= #Offsets then
+			atDisplacement = -finalDisplacements[i]
+			afterDisplacement = 0
+		end
+		if i ~= 1 then
+			beforeDisplacement = finalDisplacements[i]
+		end
+		local baseSVs = table.duplicate(svs)
+		prepareDisplacingSVs(Offset, svsToAdd, svTimeIsAdded, beforeDisplacement,
 			atDisplacement, afterDisplacement, true, baseSVs)
 	end
 	getRemovableSVs(svsToRemove, svTimeIsAdded, firstOffset, lastOffset, retroactiveSVRemovalTable)
@@ -3473,7 +3204,6 @@ svVibrato = function(menuVars, heightFn)
 		local posDifference = endPos - startPos
 		
 		local teleportCount = math.floor((nextVibro - startVibro)/fps/roundingFactor)*roundingFactor
-		print(teleportCount)
 		if teleportCount < 2 then
 			print('e!', 'Check for notes 1ms apart.')
 			return
@@ -4040,6 +3770,7 @@ function copyItems(menuVars)
 		print('w!', 'There were no items to copy.')
 	end
 end
+-- editor.between = {}
 copyItems = function(menuVars)
 	clearCopiedItems(menuVars)
 	local offsets = game.Get("HO", state.SelectedHitObjects)
@@ -4859,7 +4590,6 @@ function scaleDisplaceSVs(menuVars)
 		if scaleType == 'Average SV' then
 			local targetDistance = menuVars.avgSV * (note2Offset - note1Offset)
 			scalingDistance = targetDistance - currentDistance
-			print(scalingDistance)
 		elseif scaleType == 'Absolute Distance' then
 			scalingDistance = menuVars.distance - currentDistance
 		elseif scaleType == 'Relative Ratio' then
@@ -5102,6 +4832,8 @@ function jumpToTg()
 end
 function checkForGlobalHotkeys()
 	if (truthy(state.GetValue('hotkey_awaitingIndex', 0))) then return end -- Disable hotkeys when editing keybinds
+	--[[kil temp]]
+	do return end
 	if (kbm.pressedKeyCombo(globalVars.hotkeyList[hotkeys_enum.go_to_note_tg])) then jumpToTg() end
 	if (kbm.pressedKeyCombo(globalVars.hotkeyList[hotkeys_enum.toggle_note_lock])) then changeNoteLockMode() end
 	if (kbm.pressedKeyCombo(globalVars.hotkeyList[hotkeys_enum.toggle_end_offset])) then toggleUseEndOffsets() end
@@ -5581,15 +5313,15 @@ function renderSVSpectrogram()
 			for i = -binCount / 2, binCount / 2 - 1 do
 				local binLower = ((binScalingFactor ^ (i + binCount / 2)) ^ binScalingFactor - 1) * side
 				local binHigher = binLower * binScalingFactor + (binScalingFactor - 1) * side
-				local str = math.max(1 - math.abs((m * ssf - (binLower + binHigher) / 2) / (binHigher - binLower)), 0) *
+				local STRING = math.max(1 - math.abs((m * ssf - (binLower + binHigher) / 2) / (binHigher - binLower)), 0) *
 					0.99 +
 					0.01
-				str = str *
+				STRING = STRING *
 					math.pow((1 - math.clamp((afterTime - taperMinTime) / (taperMaxTime - taperMinTime), 0, 1)), 4)
 				if (side == -1) then
-					table.insert(binValues, 1, str)
+					table.insert(binValues, 1, STRING)
 				else
-					table.insert(binValues, str)
+					table.insert(binValues, STRING)
 				end
 			end
 		end
@@ -7448,7 +7180,6 @@ local Update = function(PIXIE, INDEX, TIME, POS)
 	-- local timeLeft = PIXIE.Time - TIME
 	local RanDur = math.random(5, 15)*lDuration
 	local endTime = TIME + lDuration
-	-- print(endTime)
 	local yRange = 50 + POS.y
 	PIXIE[INDEX] = Create(POS, vector.new(0, yRange), endTime)
 end
@@ -7689,6 +7420,7 @@ drawGlare = function(o, coords, size, glareColor, auraColor)
 	-- o.AddCircleFilled(coords, circleSize2, auraColor, circlePoints)
 end
 function pulseController()
+	do return end--[kill temp]
 	local pulseVars = {
 		previousBar = 0,
 		pulseStatus = 0,
@@ -8690,6 +8422,95 @@ function PushGradientStyle(color1, color2, property, oscillationPeriod)
 end
 INSTRUCTION_COLOR = vector.New(1, 0.5, 0.5, 1)
 GUIDELINE_COLOR = vector.New(0.5, 0.5, 1, 1)
+do
+local KeyIndex = {}
+for i = 65, 90 do
+	KeyIndex[i] = false end
+--[[keys...]]
+kit.KeyKall = function(...)
+	for i, v in ipairs({...}) do
+		if utils.IsKeyDown(v) then
+			return true
+	end end
+	return false
+end
+ -- Returns two values; 1: key pressed? 2: any combo-key down?
+--[[keys, keys...]]
+function kit.IsKeyCombo(KEY, ...)
+	if kit.KeyKall(select(2, ...))	then
+		if kit.IsKeyPressed(KEY) then
+			return true, true end
+		return false, true end
+	return false, false
+end
+ -- Returns two values; 1: key pressed? 2: key down?
+--[[keys]]
+function kit.IsKeyPressed(KEY)
+	local Key = tonumber(KEY)
+	if utils.IsKeyDown(KEY) then
+		if not KeyIndex[Key] then
+			KeyIndex[Key] = true
+			return true, true end
+		return false, true end
+	KeyIndex[Key] = false
+	return false, false
+end
+ -- Returns two values; 1: key pressed? 2: any combo-key (not) down?
+--[[keys...]]
+function kit.IsKeyPressedEx(...)
+	if kit.KeyKall(select(2, ...)) then
+		return false, false end
+	return kit.IsKeyPressed(...)
+end
+end--do
+do
+local Swap = function (VECTOR)
+	return {VECTOR[2], VECTOR[1]} end
+local Negate = function (VECTOR, NAME1)
+	return {-VECTOR[1] + 0, -VECTOR[2] + 0}--[[+0 to -0 -> 0]]
+end
+local ColCurr
+ui.SwapNegate = function(VECTOR)
+	local PressedS, Held = kit.IsKeyPressedEx(keys.S, 162, 163)--[[Left|Right Ctrl]]
+	if Held then
+		if PressedS then
+			ColCurr = iU32toRGB(imgui.GetColorU32(23)) end
+		iPushCol(21, ColCurr or iU32toRGB(imgui.GetColorU32(23)))
+	end
+	if imgui.Button("S##Swap", TERTIARY_BUTTON_SIZE) or PressedS then
+		VECTOR = Swap(VECTOR) end
+	if Held then iPopCol() end
+	KeepSameLine()
+	local PressedN, Held = kit.IsKeyPressed(keys.N)
+	if Held then
+		if PressedN then
+			ColCurr = iU32toRGB(imgui.GetColorU32(23)) end
+		iPushCol(21, ColCurr or iU32toRGB(imgui.GetColorU32(23)))
+	end
+	if imgui.Button("N##Nega", _TERTIARY_BUTTON_SIZE) or PressedN then
+		VECTOR = Negate(VECTOR) end
+	if Held then iPopCol() end
+	return VECTOR, PressedS or PressedN
+end
+ui.Input2 = function(VECTOR, LABEL)
+	local Active, Vector = imgui.InputFloat2(LABEL, VECTOR, "%.3gx")
+	Vector = Active and vector.table(Vector) or VECTOR
+	return Vector, Active
+end
+end--do
+do
+local Width = DEFAULT_WIDGET_WIDTH * 0.7 - SAMELINE_SPACING
+local ActiveB, ActiveA
+ui.SwapNegaInput = function(VECTOR, LABEL)
+	VECTOR, ActiveA = ui.SwapNegate(VECTOR)
+	KeepSameLine()
+	imgui.PushItemWidth(Width)
+	VECTOR, ActiveB = ui.Input2(VECTOR, LABEL)
+	imgui.PopItemWidth()
+	return VECTOR, ActiveA or ActiveB
+end
+end--do
+	
 -- Creates an imgui button
 -- Parameters
 --	text	   : text on the button [String]
@@ -8882,6 +8703,7 @@ function SwappableNegatableInputFloat2(varsTable, lowerName, higherName, label, 
 	digits = digits or 2
 	suffix = suffix or 'x'
 	widthFactor = widthFactor or 0.7
+	
 	imgui.PushStyleVar(imgui_style_var.FramePadding, vector.New(7, 4))
 	local swapButtonPressed = imgui.Button('S##' .. lowerName, TERTIARY_BUTTON_SIZE)
 	HoverToolTip('Swap the two values.')
@@ -9108,6 +8930,55 @@ function simpleActionMenu(buttonText, minimumNotes, actionfunc, menuVars, hideNo
 		'\' on your keyboard to do the same thing as this button')
 	executeFunctionIfTrue(kbm.pressedKeyCombo(keyCombo), actionfunc, menuVars)
 end
+simpleActionMenu = function(buttonText, minimumNotes, actionfunc, menuVars, hideNoteReq, disableKeyInput, optionalKeyOverride)
+	if (not hideNoteReq) then AddSeparator() end
+	local infoText = 'Select '.. minimumNotes.. ' or more '.. pluralize('note', minimumNotes)
+	if not (#state.SelectedHitObjects >= minimumNotes) then
+		if (not hideNoteReq) then imgui.Text(infoText) end
+		return
+	end
+	FunctionButton(buttonText, ACTION_BUTTON_SIZE, actionfunc, menuVars)
+	if disableKeyInput then return end
+	local keyCombo = optionalKeyOverride or globalVars.hotkeyList[1 + tn(hideNoteReq)]
+	local tooltip = HoverToolTip('Press \'' .. keyCombo ..'\' to do the same thing as this button')
+	executeFunctionIfTrue(kbm.pressedKeyCombo(keyCombo), actionfunc, menuVars)
+end
+do
+local ColCurr
+ui.ActionButton = function(TEXT, KEYBOARD, ...)
+	local Pressed, Held = KEYBOARD and plugin[KEYBOARD](...)
+	if Held then
+		if Pressed then
+			ColCurr = iU32toRGB(imgui.GetColorU32(23)) end
+		iPushCol(21, ColCurr or iU32toRGB(imgui.GetColorU32(23)))
+	end
+	if imgui.Button(TEXT, ACTION_BUTTON_SIZE) or Pressed then
+		iPopCol()
+		return true, Pressed, Held end
+	if Held then iPopCol() end
+	return false, Pressed, Held
+end
+end--do
+do
+local ColCurr = false
+ui.ActionButtonKeyBool = function(TEXT, ...)
+	local Pressed, Held, Combo = plugin["IsKeyBool"](...)
+	
+	if Held then
+		if Pressed then ColCurr = iU32toRGB(imgui.GetColorU32(23)) end
+		iPushCol(21, ColCurr)
+	elseif Combo then
+		print()
+		iPushCol(21, iU32toRGB(imgui.GetColorU32(22)))
+	end
+	if imgui.Button(TEXT, ACTION_BUTTON_SIZE) or Pressed then
+		iPopCol()
+		return true, Pressed, Held, Combo end
+	if Held or Combo then
+		iPopCol() end
+	return false, Pressed, Held, Combo
+end
+end--do
 ---Runs a function with the given parameters if the given `condition` is true.
 ---@param condition boolean The condition that is used.
 ---@param fn fun(...): nil The function to run if the condition is true.
@@ -9227,6 +9098,12 @@ end
 --	settingVars   : list of variables used for the current menu [Table]
 --	skipFinalSV   : whether or not to skip choosing the final SV [Boolean]
 --	svPointsForce : number of SV points to force [Int or nil]
+-- linear = {}
+-- exponential = {}
+-- bezier = {}
+-- hermite = {}
+-- sinuoidal = {}
+-- circular = {}
 function showSettingsMenu(currentSVType, settingVars, skipFinalSV, svPointsForce, optionalLabel)
 	if currentSVType == 'Linear' then
 		return linearSettingsMenu(settingVars, skipFinalSV, svPointsForce)
@@ -9363,7 +9240,7 @@ function renderPresetMenu(menuLabel, menuVars, settingVars)
 		imgui.Text('Import Preset:')
 		KeepSameLine()
 		imgui.PushItemWidth(103)
-		_, importCustomPreset = imgui.InputTextWithHint('##CustomPreset', 'Exported Str.', importCustomPreset,
+		_, importCustomPreset = imgui.InputTextWithHint('##CustomPreset', 'Exported STRING.', importCustomPreset,
 			MAX_IMPORT_CHARACTER_LIMIT)
 		cache.importCustomPreset = importCustomPreset
 		imgui.PopItemWidth()
@@ -9779,6 +9656,51 @@ function placeStandardSVMenu()
 		simpleActionMenu('Place SVs between selected notes', 2, placeSVs, menuVars)
 	end
 	simpleActionMenu('Place SSFs between selected notes', 2, placeSSFs, menuVars, true)
+	cache.saveTable(currentSVType .. 'StandardSettings', settingVars)
+	cache.saveTable('placeStandardMenu', menuVars)
+end
+placeStandardSVMenu = function()
+	PresetButton()
+	local menuVars = getMenuVars('placeStandard')
+	local needSVUpdate = not truthy(menuVars.svMultipliers)
+	needSVUpdate = chooseStandardSVType(menuVars, false) or needSVUpdate
+	AddSeparator()
+	local currentSVType = STANDARD_SVS[menuVars.svTypeIndex]
+	local settingVars = getSettingVars(currentSVType, 'Standard')
+	if globalVars.showPresetMenu then
+		local presetSelected = renderPresetMenu('Standard', menuVars, settingVars)
+		if (not presetSelected) then
+			cache.saveTable(currentSVType .. 'StandardSettings', settingVars)
+			cache.saveTable('placeStandardMenu', menuVars)
+		end
+		return
+	end
+	needSVUpdate = showSettingsMenu(currentSVType, settingVars, false, nil, 'Standard') or needSVUpdate
+	AddSeparator()
+	needSVUpdate = chooseInterlace(menuVars) or needSVUpdate
+	if needSVUpdate then updateMenuSVs(currentSVType, menuVars, settingVars, false) end
+	startNextWindowNotCollapsed('SV Info')
+	makeSVInfoWindow('SV Info', menuVars.svGraphStats, menuVars.svStats, menuVars.svDistances, menuVars.svMultipliers, nil, false)
+	menuVars.settingVars = settingVars
+	local Truthy = #state.SelectedHitObjects > 1
+	if Truthy then
+		local ComboKey = plugin.KeyKall(160, 161)
+		if (STANDARD_SVS[menuVars.svTypeIndex] == 'Exponential' and settingVars.distanceMode == 2) then
+			simpleActionMenu('Place SVs between selected notes##Exponential', 2, placeExponentialSpecialSVs, menuVars)
+		else
+			local Text = "Place SVs between selected notes"
+			if ui.ActionButtonKeyBool(Text, (not ComboKey), keys.T) then
+				placeSVs(menuVars)
+			end
+		end
+		local Text = "Place SSFs between selected notes"
+		if ui.ActionButtonKeyBool(Text, ComboKey, keys.T) then--[[Left|Right Shift]]
+			print()
+			placeSSFs(menuVars)
+		end
+	else
+		imgui.Text("Selected 2 or more notes")
+	end
 	cache.saveTable(currentSVType .. 'StandardSettings', settingVars)
 	cache.saveTable('placeStandardMenu', menuVars)
 end
@@ -14442,8 +14364,8 @@ function showCustomThemeSettings()
 	end
 	KeepSameLine()
 	if (imgui.Button('Export')) then
-		local str = stringifyCustomStyle(globalCustomStyle)
-		imgui.SetClipboardText(str)
+		local STRING = stringifyCustomStyle(globalCustomStyle)
+		imgui.SetClipboardText(STRING)
 		print('s!', 'Exported custom theme to your clipboard.')
 	end
 	KeepSameLine()
@@ -14491,12 +14413,12 @@ function showCustomThemeSettings()
 		write(globalVars)
 	end
 end
-function convertStrToShort(str)
-	if (str:lower() == str) then
-		return str:charAt(1) .. str:sub(-1)
+function convertStrToShort(STRING)
+	if (STRING:lower() == STRING) then
+		return STRING:charAt(1) .. STRING:sub(-1)
 	else
-		local newStr = str:charAt(1)
-		for char in str:gmatch('%u') do
+		local newStr = STRING:charAt(1)
+		for char in STRING:gmatch('%u') do
 			newStr = newStr .. char
 		end
 		return newStr
@@ -14518,21 +14440,21 @@ function stringifyCustomStyle(customStyle)
 	end
 	return resultStr:sub(1, -2)
 end
-function setCustomStyleString(str, exportInstead)
+function setCustomStyleString(STRING, exportInstead)
 	local keyIdDict = {}
 	for _, key in ipairs(table.keys(DEFAULT_STYLE)) do
 		keyIdDict[key] = convertStrToShort(key)
 		if (key:sub(1, 6) == 'loadup') then keyIdDict[key] = keyIdDict[key] .. key:sub(-1):upper() end
 	end
-	if (str:sub(1, 3) == 'v2 ') then
-		parseCustomStyleV2(str:sub(4), keyIdDict, exportInstead)
+	if (STRING:sub(1, 3) == 'v2 ') then
+		parseCustomStyleV2(STRING:sub(4), keyIdDict, exportInstead)
 		return
 	end
 	print('e!', 'This version of theming is no longer supported. We apologize for any inconvenience.')
 end
-function parseCustomStyleV2(str, keyIdDict, exportInstead)
+function parseCustomStyleV2(STRING, keyIdDict, exportInstead)
 	local customStyle = {}
-	for kvPair in str:gmatch('[^ ]+') do
+	for kvPair in STRING:gmatch('[^ ]+') do
 		local keyId = kvPair:sub(1, kvPair:len() - 5)
 		local keyValue = kvPair:sub(-5)
 		local key = table.indexOf(keyIdDict, keyId)
@@ -16288,6 +16210,28 @@ function chooseStartEndSVs(settingVars)
 	end
 	return SwappableNegatableInputFloat2(settingVars, 'startSV', 'endSV', 'Start/End SV')
 end
+function chooseStartEndSVs(settingVars)
+	if settingVars.linearlyChange == false then
+		local oldValue = settingVars.startSV
+		_, settingVars.startSV = imgui.InputFloat('SV Value', oldValue, 0, 0, '%.2fx')
+		return oldValue ~= settingVars.startSV
+	end
+	return SwappableNegatableInputFloat2(settingVars, 'startSV', 'endSV', 'Start/End SV')
+end
+chooseStartEndSVs = function(settingVars)
+	if settingVars.linearlyChange == false then
+		local oldValue = settingVars.startSV
+		_, settingVars.startSV = imgui.InputFloat('SV Value', oldValue, 0, 0, '%.2fx')
+		return oldValue ~= settingVars.startSV
+	end
+	local Vector = {settingVars['startSV'], settingVars['endSV']}
+	local Vector, Active = ui.SwapNegaInput(Vector, 'Start/End SV')
+	if Active then
+		settingVars['startSV'] = Vector[1]
+		settingVars['endSV'] = Vector[2]
+	end
+	return Active
+end
 function chooseStartSVPercent(settingVars)
 	local label1 = 'Start SV %'
 	if settingVars.linearlyChange then label1 = label1 .. ' (start)' end
@@ -16461,6 +16405,19 @@ function calculateDisplacementsFromNotes(noteOffsets, noteSpacing)
 	end
 	return displacements
 end
+calculateDisplacementsFromNotes = function(noteOffsets, noteSpacing)
+	local totalDisplacement = 0
+	local displacements = {0}
+	-- print(noteOffsets)
+	for i = 1, #noteOffsets - 1 do
+		local deltaTime = noteOffsets[i + 1] - noteOffsets[i]
+		-- print(deltaTime)
+		local distance = deltaTime * noteSpacing
+		totalDisplacement = totalDisplacement + distance
+		table.insert(displacements, totalDisplacement)
+	end
+	return displacements
+end
 -- Calculates the total msx displacement over time for a given set of SVs
 -- Returns a table of total displacements [Table]
 -- Parameters
@@ -16494,6 +16451,35 @@ function calculateDisplacementsFromSVs(svs, offsets)
 			table.insert(displacements, displacement)
 			j = j + 1
 		end
+		if svTimeDifference > 0 then
+			local thisDisplacement = svTimeDifference * lastSV.Multiplier
+			totalDisplacement = totalDisplacement + thisDisplacement
+		end
+	end
+	table.remove(svs)
+	table.insert(displacements, totalDisplacement)
+	return displacements
+end
+calculateDisplacementsFromSVs = function(svs, offsets)
+	local totalDisplacement = 0
+	local displacements = {}
+	local lastOffset = offsets[#offsets]
+	addSVToList(svs, lastOffset, 0, true)
+	local Index = 1
+	for i = 1, (#svs - 1) do
+		local lastSV = svs[i]
+		local nextSV = svs[i + 1].StartTime
+		local svTimeDifference = nextSV - lastSV.StartTime
+		while nextSV > offsets[Index] do
+			local svToOffsetTime = offsets[Index] - lastSV.StartTime
+			local displacement = totalDisplacement
+			if svToOffsetTime > 0 then
+				displacement = displacement + lastSV.Multiplier * svToOffsetTime
+			end
+			displacements[Index] = displacement
+			Index = Index + 1
+		end
+			
 		if svTimeDifference > 0 then
 			local thisDisplacement = svTimeDifference * lastSV.Multiplier
 			totalDisplacement = totalDisplacement + thisDisplacement
@@ -17159,31 +17145,7 @@ function createFrameTime(thisTime, thisLanes, thisFrame, thisPosition)
 	}
 	return frameTime
 end
-function triggerListeners()
-	listenForTimingGroupCount()
-	listenForGeneralChanges()
-end
-function listenForGeneralChanges()
-	listen(function(_, _, _)
-		cache.boolean.changeOccurred = true
-	end)
-end
-function listenForTimingGroupCount()
-	local function refreshTgList()
-		local baseList = game.get.timingGroupList()
-		if (globalVars.hideAutomatic) then
-			table.filter(baseList,
-				function(str) return not string.find(str, 'automate_') end)
-		end
-		cache.tgList = baseList
-	end
-	refreshTgList()
-	listen(function(action, type, fromLua)
-		local actionIndex = tonumber(action.Type)
-		if (actionIndex < action_type.CreateTimingGroup and actionIndex ~= action_type.Batch) then return end
-		refreshTgList()
-	end)
-end
+
 ---Returns true if the number of notes in the given [HitObject](lua://HitObject) list contains at least `requiredLNCount` long notes. If `requiredLNCount` isn't given, the default value 1 is used.
 ---@param hos HitObject[]
 ---@param requiredLNCount? integer
@@ -17203,54 +17165,6 @@ function printLegacyLNMessage()
 	print('w!',
 		'Using any sort of displacements with LNs while Legacy LN rendering is highly discouraged. Consider turning on Legacy LN Rendering in the F1 menu. You can permanently disable this message in the plumoguSV settings.')
 	cache.disablePrintLegacyLNMessage = true
-end
----Alias for [`utils.CreateScrollVelocity`](lua://utils.CreateScrollVelocity).
----@param startTime number
----@param multiplier number
----@return ScrollVelocity
-function createSV(startTime, multiplier)
-	return utils.CreateScrollVelocity(startTime, multiplier)
-end
----Alias for [`utils.CreateScrollSpeedFactor`](lua://utils.CreateScrollSpeedFactor).
----@param startTime number
----@param multiplier number
----@return ScrollSpeedFactor
-function createSSF(startTime, multiplier)
-	return utils.CreateScrollSpeedFactor(startTime, multiplier)
-end
----Alias for [`utils.CreateEditorAction`](lua://utils.CreateEditorAction).
----@param actionType EditorActionType
----@param ... any
----@return EditorAction
-function createEA(actionType, ...)
-	return utils.CreateEditorAction(actionType, ...)
-end
----Alias for [`utils.CreateScrollGroup`](lua://utils.CreateScrollGroup).
----@param svs ScrollVelocity[]
----@param initialSV? number
----@param colorRgb? string
----@return ScrollGroup
-function createSG(svs, initialSV, colorRgb)
-	return utils.CreateScrollGroup(svs, initialSV, colorRgb)
-end
----Removes and adds SVs.
----@param svsToRemove ScrollVelocity[]
----@param svsToAdd ScrollVelocity[]
-function removeAndAddSVs(svsToRemove, svsToAdd)
-	local tolerance = 0.035
-	if not truthy(svsToAdd) then return end
-	for idx, sv in pairs(svsToRemove) do
-		local baseSV = game.get.svStartTimeAt(sv.StartTime)
-		if (math.abs(baseSV - sv.StartTime) > tolerance) then
-			table.remove(svsToRemove, idx)
-		end
-	end
-	local editorActions = {
-		createEA(action_type.RemoveScrollVelocityBatch, svsToRemove),
-		createEA(action_type.AddScrollVelocityBatch, svsToAdd),
-	}
-	actions.PerformBatch(editorActions)
-	toggleablePrint('s!', 'Created ' .. #svsToAdd .. pluralize(' SV.', #svsToAdd, -2))
 end
 removeAndAddSVs = function(svsToRemove, svsToAdd)
 	local tolerance = 0.035
@@ -18103,154 +18017,6 @@ function toggleablePrint(type, msg)
 	if (creationMsg and globalVars.dontPrintCreation) then return end
 	print(type, msg)
 end
-toggleablePrint = function(type, ...)
-	for i, v in ipairs({...}) do
-		local creationMsg = v:find('Create') and true or false
-		if (creationMsg and globalVars.dontPrintCreation) then return end
-	end
-	print(type, ...)
-end
-function awake()
-listen(function(action, status, fromLua)
-	if (not next(ipc.subscriptions)) then return end
-	if (not fromLua or tonumber(action.Type) ~= 39 or status ~= history_type.New) then return end
-	---@diagnostic disable-next-line: undefined-field
-	local bm = action.Bookmark ---@type Bookmark
-	for port, fn in pairs(ipc.subscriptions) do
-		if (math.abs(ipc.transform(port) - bm.StartTime) < 1e-8 and type(fn) == "function") then
-			fn(bm.Note)
-			return
-		end
-	end
-end)
-loadup = {} -- later inserted to via setStyleVars.lua
-local tempGlobalVars = read()
-if (tempGlobalVars and tempGlobalVars.colorThemeIndex) then
-	print('w!',
-		'Due to an internal change, your selected theme may have been reset. Please reselect the theme in the plugin settings')
-end
-if (not tempGlobalVars and state and map and utils and actions) then
-	write(DEFAULT_GLOBAL_VARS) -- First time launching plugin
-	setPresets({})
-else
-	setGlobalVars(tempGlobalVars)
-	loadDefaultProperties(tempGlobalVars.defaultProperties)
-	setPresets(tempGlobalVars.presets or {})
-end
-initializeNoteLockMode()
-triggerListeners()
-setPluginAppearance()
-state.SelectedScrollGroupId = '$Default' or map.GetTimingGroupIds()[1]
-if (not truthy(map.TimingPoints)) then
-	print('e!', 'Please place a timing point before attempting to use plumoguSV.')
-end
-if (state.Scale ~= 1) then
-	local printedScale = math.round(state.Scale * 100)
-	print('e!',
-		'Your ImGui scale is set to ' ..
-		printedScale .. '% instead of 100%. For visual purposes, please set it back to 100%.')
-end
-initializeDisplacementExponentCache()
-clock.prevTime = state.UnixTime
-game.keyCount = map.GetKeyCount()
-end
-awake = function()
-	listen(function(action, status, fromLua)
-		if (not next(ipc.subscriptions)) then return end
-		if (not fromLua or tonumber(action.Type) ~= 39 or status ~= history_type.New) then return end
-		---@diagnostic disable-next-line: undefined-field
-		local bm = action.Bookmark ---@type Bookmark
-		for port, fn in pairs(ipc.subscriptions) do
-			if (math.abs(ipc.transform(port) - bm.StartTime) < 1e-8 and type(fn) == "function") then
-				fn(bm.Note)
-				return
-			end
-		end
-	end)
-	loadup = {} -- later inserted to via setStyleVars.lua
-	initializeNoteLockMode()
-	triggerListeners()
-	setPluginAppearance()
-	state.SelectedScrollGroupId = '$Default' or map.GetTimingGroupIds()[1]
-	initializeDisplacementExponentCache()
-	clock.prevTime = state.UnixTime
-	game.keyCount = map.GetKeyCount()
-end
-function draw()
-if (not state
-	or not imgui
-	or not map
-	or not utils
-	or not actions
-	or not vector
-	or not bit32
-	or not listen
-	or not read
-	or not write
-	) then
-	return
-end
-state.IsWindowHovered = imgui.IsWindowHovered()
-PLUGIN_NAME = 'plumoguSV-dev'
-if (globalVars.capybaraMode) then
-	cache.windows.showSettingsWindow = false
-	capybaraModeWindow()
-	return
-end
-local performanceMode = globalVars.performanceMode
-startNextWindowNotCollapsed(PLUGIN_NAME)
-imgui.SetNextWindowSizeConstraints(vctr2(0), vector.Max(table.vectorize2(state.WindowSize) / 2, vctr2(676))) -- RAHHHH 6 7 6 7 6 7 6 7 6 7 6 7
-imgui.Begin(PLUGIN_NAME, imgui_window_flags.AlwaysAutoResize)
-if (not performanceMode) then
-	addGradient()
-	renderBackground()
-	drawCapybaraParent()
-	drawCursorTrail()
-	pulseController()
-	checkForGlobalHotkeys()
-	setPluginAppearance()
-end
-imgui.PushItemWidth(DEFAULT_WIDGET_WIDTH)
-imgui.BeginTabBar('SV tabs')
-for i = 1, #TAB_MENUS do
-	createMenuTab(TAB_MENUS[i])
-end
-imgui.EndTabBar()
-if (not performanceMode) then
-	if (globalVars.showVibratoWidget) then
-		imgui.Begin('plumoguSV-vibrato', imgui_window_flags.AlwaysAutoResize)
-		imgui.PushItemWidth(DEFAULT_WIDGET_WIDTH)
-		placeVibratoSVMenu(true)
-		imgui.End()
-	end
-	if (globalVars.showNoteDataWidget) then
-		renderNoteDataWidget()
-	end
-	if (globalVars.showMeasureDataWidget) then
-		renderMeasureDataWidget()
-	end
-end
-if (cache.windows.showTutorialWindow) then
-	showTutorialWindow()
-end
-if (cache.windows.showSettingsWindow) then
-	showPluginSettingsWindow()
-end
-if (cache.windows.showPatchNotesWindow) then
-	showPatchNotesWindow()
-end
-if (not performanceMode and map.ToString():sub(1, 49) == 'elxnce2 - DJ ELXNCE BRINGS BACK EARLY 2021 VIBES ') then
-	runTest()
-end
-imgui.End()
-logoThread()
-cache.boolean.changeOccurred = false
-local groups = cache.tgList
-if (state.SelectedScrollGroupId ~= groups[globalVars.scrollGroupIndex]) then
-	globalVars.scrollGroupIndex = table.indexOf(groups, state.SelectedScrollGroupId)
-end
-tempClockCount = 0
-end
 StartUp = function()
 	if (not state
 		or not imgui
@@ -18272,17 +18038,31 @@ StartUp = function()
 	uCreateSF = utils.CreateScrollSpeedFactor
 	uCreateEA = utils.CreateEditorAction
 	uCreateSG = utils.CreateScrollGroup
+	game.keyCount = map.GetKeyCount()
 	
+	iU32toRGB = imgui.ColorConvertU32ToFloat4
+	iPushCol = imgui.PushStyleColor
+	iPopCol = imgui.PopStyleColor
+	
+	clock.prevTime = state.UnixTime
+	state.SelectedScrollGroupId = '$Default' or map.GetTimingGroupIds()[1]
+
+	loadup = {} -- later inserted to via setStyleVars.lua
+	
+	initializeNoteLockMode()
+	setPluginAppearance()
+	initializeDisplacementExponentCache()
 	
 	if (#map.TimingPoints == 0) then
 		print('e!', "No timing point set.",
 			" Will contiue with default values until one is\n found.",
-			"(no internal default yet, potential to crash)")
+			"(no internal default, potential to crash)")
 	elseif (state.Scale ~= 1) then
-		local printedScale = math.round(state.Scale * 100)
+		local printedScale = math.round(state.Scale*100)
+		print(printedScale)
 		local printedScale = (100 < printedScale) and "above" or "below"
-		print('w!', "Editor ImGui Scale is ".. printedScale..
-			" 100%\n For visual purposes; suggest setting it to\n 100%.")
+		print('w!', "Editor ImGui Scale is ".. printedScale.." 100%",
+			" For visual purposes; suggest setting it to\n 100%.")
 	end
 	PLUGIN_NAME = 'plumoguSV/Athral'
 	StartUpText =
@@ -18296,7 +18076,8 @@ StartUp = function()
 	local tempGlobalVars = read()
 	if tempGlobalVars then
 		if tempGlobalVars.colorThemeIndex then
-			print('w!', 'Due to an internal change, your selected theme may have been reset. Please reselect the theme in the plugin settings') end
+			print('w!',
+				"Due to an internal change, your selected theme may have been reset. Please reselect the theme in the plugin settings") end
 		setGlobalVars(tempGlobalVars)
 		loadDefaultProperties(tempGlobalVars.defaultProperties)
 		setPresets(tempGlobalVars.presets or {})
@@ -18311,19 +18092,23 @@ StartUp = function()
 	StartUp = function()
 		imgui.SetNextWindowSizeConstraints(MinVector, vector.Max(table.vectorize2(state.WindowSize)/2, MaxVector))
 end end
---[[
 
-]]
--- print "ABC"
--- print ("ABC" .. "DEF")
--- print(type "ABC")
 draw = function()
 	if StartUp() then return end
 	local Perform = not globalVars.performanceMode
+	local Time = state.UnixTime/1000/60/60/24/365.25
+	local Years, Hold = math.modf(Time)
+	local Days, Hold = math.modf(Hold*365.25)
+	local Hours, Hold = math.modf(Hold*24)
+	local Minutes, Hold = math.modf(Hold*60)
+	local Seconds, Hold = math.modf(Hold*60)
+	local MilliSeconds = Hold*1000
+	imgui.Text(string.format("Year %g\nDay %g\nHour %g\nMinute %g\nSecond %g\nMilliSecond %g", Years, Days, Hours, Minutes, Seconds, MilliSeconds))
 	if Perform then
 		drawCapybaraParent()
 		drawCursorTrail()
 	end
+	
 	if imgui.Begin(PLUGIN_NAME, 64) then
 		if Perform then
 			addGradient()
@@ -18351,12 +18136,16 @@ draw = function()
 		imgui.EndTabBar()
 		imgui.PopItemWidth()
 		local Windows = cache.windows
+		--[[use render unpon call, then kill once closed.]]
+		--[[
 		if (Windows.showSettingsWindow) then
 			showPluginSettingsWindow() end
 		if (Windows.showPatchNotesWindow) then
 			showPatchNotesWindow() end
+		--]]
 		imgui.End()
 		cache.boolean.changeOccurred = false
+		do return end--[[kill temp]]
 		local groups = cache.tgList
 		if (state.SelectedScrollGroupId ~= groups[globalVars.scrollGroupIndex]) then
 			globalVars.scrollGroupIndex = table.indexOf(groups, state.SelectedScrollGroupId)
