@@ -1,4 +1,5 @@
-In a few weeks (from 8/25) a working version will be published. Working on this and school full-time, not working on any games so pretty eager. Expect some minor changes to the GUI, some more options and visuals, and a couple new features! (lots of back-end stuff as-well; if that is of interest) 
+Releasing 9/29, I'll hope you'll be excited; I am very eager. Resisting the urge to release a prototype, it will be in v1.0 on release!
+Working on this and school full-time, not working on any games. Expect some changes to UI; added options and visuals; a couple entirely new features! (lots of back-end stuff as-well; if that is of interest) 
 
 Goals? reimagine the project within suits, also to further learning in Lua
 
